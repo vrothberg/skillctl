@@ -1,14 +1,19 @@
+GO ?= go
+GO_BUILD = $(GO) build -mod=vendor
+GO_TEST = $(GO) test -mod=vendor
+GO_RUN = $(GO) run -mod=vendor
+
 BINARY := bin/skillctl
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
 CONTAINER_IMAGE := skillctldev
 
 .PHONY: build
 build:
-	go build -o $(BINARY) ./cmd/skillctl
+	$(GO_BUILD) -o $(BINARY) ./cmd/skillctl
 
 .PHONY: test-unit
 test-unit:
-	go test ./...
+	$(GO_TEST) ./...
 
 .PHONY: test-integration
 test-integration: build
@@ -23,7 +28,20 @@ clean:
 
 .PHONY: lint
 lint:
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run ./...
+	$(GO_RUN) github.com/golangci/golangci-lint/v2/cmd/golangci-lint run ./...
+
+.PHONY: vendor
+vendor:
+	$(GO) mod tidy
+	$(GO) mod vendor
+	$(GO) mod verify
+
+.PHONY: validate-vendor
+validate-vendor:
+	$(GO) mod tidy
+	$(GO) mod vendor
+	$(GO) mod verify
+	./hack/tree_status.sh
 
 # Container targets
 
@@ -37,7 +55,7 @@ container-build: container-image
 
 .PHONY: container-test
 container-test: container-image
-	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make lint test
+	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make validate-vendor lint test
 
 .PHONY: container-shell
 container-shell: container-image
