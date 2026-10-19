@@ -45,6 +45,8 @@ skills:
 
 This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
 
+See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a complete end-to-end example with Renovate integration and CI-driven skill updates.
+
 ## Signature verification
 
 Signature verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
