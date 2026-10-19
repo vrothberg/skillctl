@@ -17,7 +17,5 @@ jobs:
         target: [validate-vendor, lint, test]
     steps:
     - uses: actions/checkout@v7
-    - name: build container image
-      run: docker build -f Containerfile -t skillctldev .
     - name: ${{ matrix.target }}
-      run: docker run --rm -v $PWD:/src/skillctl skillctldev make ${{ matrix.target }}
+      run: make container-${{ matrix.target }}
