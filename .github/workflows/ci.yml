@@ -9,9 +9,15 @@ on:
       - main
 
 jobs:
-  build_and_test:
+  ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [validate-vendor, lint, test]
     steps:
     - uses: actions/checkout@v7
-    - name: build and test
-      run: make container-test
+    - name: build container image
+      run: docker build -f Containerfile -t skillctldev .
+    - name: ${{ matrix.target }}
+      run: docker run --rm -v $PWD:/src/skillctl skillctldev make ${{ matrix.target }}

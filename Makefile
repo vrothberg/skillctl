@@ -1,7 +1,6 @@
 GO ?= go
 GO_BUILD = $(GO) build -mod=vendor
 GO_TEST = $(GO) test -mod=vendor
-GO_RUN = $(GO) run -mod=vendor
 
 BINARY := bin/skillctl
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
@@ -38,10 +37,7 @@ vendor:
 	$(GO) mod verify
 
 .PHONY: validate-vendor
-validate-vendor:
-	$(GO) mod tidy
-	$(GO) mod vendor
-	$(GO) mod verify
+validate-vendor: vendor
 	./hack/tree_status.sh
 
 # Container targets
@@ -50,13 +46,9 @@ validate-vendor:
 container-image:
 	$(CONTAINER_RUNTIME) build -f Containerfile -t $(CONTAINER_IMAGE) .
 
-.PHONY: container-build
-container-build: container-image
-	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make build
-
 .PHONY: container-test
 container-test: container-image
-	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make validate-vendor lint test
+	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make test
 
 .PHONY: container-shell
 container-shell: container-image
