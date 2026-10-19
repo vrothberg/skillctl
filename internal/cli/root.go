@@ -17,6 +17,7 @@ func Root() *cobra.Command {
 		initCommand(),
 		pullCommand(),
 		listCommand(),
+		updateCommand(),
 	)
 
 	return cmd

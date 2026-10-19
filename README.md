@@ -27,6 +27,7 @@ skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:
 |---------|-------------|
 | `skillctl init` | Create `skillctl.yaml` and `skills/` in the current directory |
 | `skillctl pull IMAGE` | Pull a skill from an OCI registry, extract it, and update the manifest |
+| `skillctl update` | Pull and extract all skills listed in the manifest |
 | `skillctl list` | List skills tracked in the manifest |
 
 ## Manifest format
@@ -42,7 +43,7 @@ skills:
       extractPath: skills/skillctl-example-skill
 ```
 
-This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl pull` to update extracted files.
+This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
 
 ## Signature verification
 
