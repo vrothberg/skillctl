@@ -39,11 +39,17 @@ func updateCommand() *cobra.Command {
 				return err
 			}
 
+			var updated int
 			for _, skill := range m.Skills {
-				fmt.Printf("Pulling %s ...\n", skill.Image)
+				fmt.Printf("Checking %s ...\n", skill.Name)
 				d, err := s.Pull(ctx, skill.Image)
 				if err != nil {
 					return fmt.Errorf("pulling %s: %w", skill.Name, err)
+				}
+
+				if d.String() == skill.Digest {
+					fmt.Printf("  %s is up to date\n", skill.Name)
+					continue
 				}
 
 				extractPath := filepath.Join(".", manifest.SkillExtractPath(skill.Name))
@@ -58,14 +64,15 @@ func updateCommand() *cobra.Command {
 					ExtractPath: manifest.SkillExtractPath(skill.Name),
 				})
 
-				fmt.Printf("Updated %s (%s)\n", skill.Name, d.Encoded()[:12])
+				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.Encoded()[:12])
+				updated++
 			}
 
 			if err := m.Save(manifestPath); err != nil {
 				return fmt.Errorf("updating manifest: %w", err)
 			}
 
-			fmt.Printf("Updated %d skill(s)\n", len(m.Skills))
+			fmt.Printf("Updated %d of %d skill(s)\n", updated, len(m.Skills))
 			return nil
 		},
 	}
