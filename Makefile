@@ -28,7 +28,8 @@ clean:
 
 .PHONY: lint
 lint:
-	$(GO_RUN) github.com/golangci/golangci-lint/v2/cmd/golangci-lint run ./...
+	cd tools && $(GO) build -mod=vendor -o ../bin/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+	./bin/golangci-lint run ./...
 
 .PHONY: vendor
 vendor:
