@@ -108,9 +108,6 @@ type dockerClient struct {
 	signatureBase          lookasideStorageBase
 	useSigstoreAttachments bool
 	scope                  authScope
-	// namespaceProxy enables OCI distribution-spec registry proxying.
-	// When set, an "ns" query parameter is appended to all requests.
-	namespaceProxy string
 
 	// The following members are detected registry properties:
 	// They are set after a successful detectProperties(), and never change afterwards.
@@ -501,11 +498,6 @@ func (c *dockerClient) resolveRequestURL(path string) (*url.URL, error) {
 	res, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
-	}
-	if c.namespaceProxy != "" {
-		q := res.Query()
-		q.Set("ns", c.namespaceProxy)
-		res.RawQuery = q.Encode()
 	}
 	return res, nil
 }
@@ -1193,17 +1185,19 @@ func isManifestUnknownError(err error) bool {
 		return true
 	}
 	// registry.redhat.io as of October 2022
-	if e, ok := errors.AsType[errcode.Error](err); ok && e.ErrorCode() == errcode.ErrorCodeUnknown && e.Message == "Not Found" {
+	var e errcode.Error
+	if errors.As(err, &e) && e.ErrorCode() == errcode.ErrorCodeUnknown && e.Message == "Not Found" {
 		return true
 	}
 	// Harbor v2.10.2
-	if e, ok := errors.AsType[errcode.Error](err); ok && e.ErrorCode() == errcode.ErrorCodeUnknown && strings.Contains(strings.ToLower(e.Message), "not found") {
+	if errors.As(err, &e) && e.ErrorCode() == errcode.ErrorCodeUnknown && strings.Contains(strings.ToLower(e.Message), "not found") {
 		return true
 	}
 
 	// opencontainers/distribution-spec does not require the errcode.Error payloads to be used,
 	// but specifies that the HTTP status must be 404.
-	if unexpected, ok := errors.AsType[*unexpectedHTTPResponseError](err); ok && unexpected.StatusCode == http.StatusNotFound {
+	var unexpected *unexpectedHTTPResponseError
+	if errors.As(err, &unexpected) && unexpected.StatusCode == http.StatusNotFound {
 		return true
 	}
 	return false

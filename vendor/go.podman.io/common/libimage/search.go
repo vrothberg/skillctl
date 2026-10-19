@@ -24,9 +24,6 @@ const (
 	// Let's follow Firefox by limiting parallel downloads to 6.  We do the
 	// same when pulling images in c/image.
 	searchMaxParallel = int64(6)
-
-	// searchResultOK represents true for Official and Automated.
-	searchResultOK = "[OK]"
 )
 
 // SearchResult is holding image-search related data.
@@ -45,16 +42,6 @@ type SearchResult struct {
 	Automated string
 	// Tag is the image tag
 	Tag string
-}
-
-// IsAutomated returns true if the image was created by an automated build.
-func (s *SearchResult) IsAutomated() bool {
-	return s.Automated == searchResultOK
-}
-
-// IsOfficial returns true if it's an official image.
-func (s *SearchResult) IsOfficial() bool {
-	return s.Official == searchResultOK
 }
 
 // SearchOptions customize searching images.
@@ -227,11 +214,11 @@ func (r *Runtime) searchImageInRegistry(ctx context.Context, term, registry stri
 		}
 		official := ""
 		if results[i].IsOfficial {
-			official = searchResultOK
+			official = "[OK]"
 		}
 		automated := ""
 		if results[i].IsAutomated {
-			automated = searchResultOK
+			automated = "[OK]"
 		}
 		description := strings.ReplaceAll(results[i].Description, "\n", " ")
 		if len(description) > 44 && !options.NoTrunc {

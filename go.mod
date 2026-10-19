@@ -5,8 +5,8 @@ go 1.27.2
 require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/spf13/cobra v1.10.2
-	go.podman.io/common v0.69.3-0.20261008124700-b3a9e1148cbe
-	go.podman.io/image/v5 v5.41.3-0.20261008124700-b3a9e1148cbe
+	go.podman.io/common v0.68.1
+	go.podman.io/image/v5 v5.40.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -90,7 +90,7 @@ require (
 	github.com/ulikunitz/xz v0.5.17 // indirect
 	github.com/vbatts/tar-split v0.12.3 // indirect
 	github.com/vbauerster/cupwriter v0.0.5 // indirect
-	github.com/vbauerster/mpb/v8 v8.16.2 // indirect
+	github.com/vbauerster/mpb/v8 v8.15.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect

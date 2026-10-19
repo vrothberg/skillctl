@@ -381,8 +381,8 @@ github.com/vbatts/tar-split/tar/storage
 # github.com/vbauerster/cupwriter v0.0.5
 ## explicit; go 1.26.0
 github.com/vbauerster/cupwriter
-# github.com/vbauerster/mpb/v8 v8.16.2
-## explicit; go 1.26.0
+# github.com/vbauerster/mpb/v8 v8.15.2
+## explicit; go 1.25.0
 github.com/vbauerster/mpb/v8
 github.com/vbauerster/mpb/v8/decor
 github.com/vbauerster/mpb/v8/internal
@@ -425,8 +425,8 @@ go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
-# go.podman.io/common v0.69.3-0.20261008124700-b3a9e1148cbe
-## explicit; go 1.26.0
+# go.podman.io/common v0.68.1
+## explicit; go 1.25.6
 go.podman.io/common/internal
 go.podman.io/common/libimage
 go.podman.io/common/libimage/define
@@ -450,8 +450,8 @@ go.podman.io/common/pkg/supplemented
 go.podman.io/common/pkg/systemd
 go.podman.io/common/pkg/timetype
 go.podman.io/common/version
-# go.podman.io/image/v5 v5.41.3-0.20261008124700-b3a9e1148cbe
-## explicit; go 1.26.0
+# go.podman.io/image/v5 v5.40.0
+## explicit; go 1.25.6
 go.podman.io/image/v5/copy
 go.podman.io/image/v5/directory
 go.podman.io/image/v5/directory/explicitfilepath
@@ -585,6 +585,12 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/nacl/secretbox
+golang.org/x/crypto/openpgp
+golang.org/x/crypto/openpgp/armor
+golang.org/x/crypto/openpgp/elgamal
+golang.org/x/crypto/openpgp/errors
+golang.org/x/crypto/openpgp/packet
+golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/scrypt
