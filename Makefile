@@ -23,7 +23,7 @@ clean:
 
 .PHONY: lint
 lint:
-	golangci-lint run ./...
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run ./...
 
 # Container targets
 
@@ -37,7 +37,7 @@ container-build: container-image
 
 .PHONY: container-test
 container-test: container-image
-	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make test
+	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make lint test
 
 .PHONY: container-shell
 container-shell: container-image

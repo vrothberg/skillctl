@@ -28,13 +28,17 @@ func listCommand() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "NAME\tIMAGE\tDIGEST\tPATH")
+			if _, err := fmt.Fprintln(w, "NAME\tIMAGE\tDIGEST\tPATH"); err != nil {
+				return err
+			}
 			for _, s := range m.Skills {
 				shortDigest := s.Digest
 				if len(shortDigest) > 19 {
 					shortDigest = shortDigest[:19]
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, s.Image, shortDigest, s.ExtractPath)
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, s.Image, shortDigest, s.ExtractPath); err != nil {
+					return err
+				}
 			}
 			return w.Flush()
 		},
