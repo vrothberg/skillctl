@@ -25,8 +25,8 @@ func (x proxyReadSeeker) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (x proxyReadSeeker) Close() error {
-	if closer, ok := x.rs.(io.Closer); ok {
-		return closer.Close()
+	if rc, ok := x.rs.(io.ReadCloser); ok {
+		return rc.Close()
 	}
 	return nil
 }
@@ -52,13 +52,13 @@ func (x ewmaProxyReadSeeker) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (x ewmaProxyReadSeeker) Close() error {
-	if closer, ok := x.rs.(io.Closer); ok {
-		return closer.Close()
+	if rc, ok := x.rs.(io.ReadCloser); ok {
+		return rc.Close()
 	}
 	return nil
 }
 
-func newProxyReadSeeker(b *Bar, rs io.ReadSeeker) io.ReadSeekCloser {
+func newProxyReadSeeker(rs io.ReadSeeker, b *Bar) io.ReadSeekCloser {
 	if len(b.ewmaDecorators) != 0 {
 		return ewmaProxyReadSeeker{rs, b}
 	}

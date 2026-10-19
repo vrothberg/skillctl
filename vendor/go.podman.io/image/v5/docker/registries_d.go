@@ -16,7 +16,7 @@ import (
 	"go.podman.io/storage/pkg/configfile"
 	"go.podman.io/storage/pkg/homedir"
 	"go.podman.io/storage/pkg/unshare"
-	"go.yaml.in/yaml/v3"
+	"gopkg.in/yaml.v3"
 )
 
 // defaultUserDockerDir is the default lookaside directory for unprivileged user

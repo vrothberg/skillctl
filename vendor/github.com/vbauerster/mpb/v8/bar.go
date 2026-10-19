@@ -20,7 +20,7 @@ import (
 // Bar represents a progress bar.
 type Bar struct {
 	ctx            context.Context
-	cancel         context.CancelFunc
+	cancel         context.CancelCauseFunc
 	index          int // used by heap
 	priority       int // used by heap
 	shutdown       int
@@ -34,6 +34,7 @@ type Bar struct {
 
 type decorSyncTable [2][]*decor.Sync
 type rowProducer func(decor.Statistics) (io.Reader, error)
+type rowExtender func(rowProducer) iter.Seq[rowProducer]
 
 // bState is actual bar's state.
 type bState struct {
@@ -45,7 +46,7 @@ type bState struct {
 	total1       int64
 	current      int64
 	refill       int64
-	rowProducers iter.Seq[rowProducer]
+	extender     rowExtender
 	filler       BarFiller
 	buffers      [3]*bytes.Buffer
 	decorGroups  [2][]decor.Decorator
@@ -63,54 +64,62 @@ type renderFrame struct {
 }
 
 // ProxyReader wraps io.Reader with metrics required for progress tracking.
-// Panics if `r` is nil. If `r` is io.ReadCloser then calling Close on the
-// returned value will close the underlying reader. If *Bar instance is already
-// completed or aborted then (nil, ErrDone[*Bar]) is returned.
-func (b *Bar) ProxyReader(r io.Reader) (io.ReadCloser, error) {
+// Panics if `r` is nil. If `r` is io.ReadCloser then calling Close on `pr`
+// will close underlying `r`s io.ReadCloser. If underlying *Bar instance is
+// already completed or aborted then value of `pr` is nil. If underlying
+// *Bar instance was initialized with total <= 0 then it's necessary to call
+// `(*Bar).SetTotal(-1, true)` after copy operation completes. Most of the
+// time it means that there is a need to call `(*Bar).SetTotal(-1, true)` after
+// io.Copy(dst, pr) returns.
+func (b *Bar) ProxyReader(r io.Reader) (pr io.ReadCloser) {
 	if r == nil {
 		panic(errors.New("expected non nil io.Reader"))
 	}
 	select {
 	case <-b.ctx.Done():
-		return nil, ErrDone[*Bar]{nil}
+		return nil
 	default:
-		return newProxyReader(b, r), nil
+		return newProxyReader(r, b)
 	}
 }
 
 // ProxyReadSeeker wraps io.ReadSeeker with metrics required for progress
 // tracking. It is the ReadSeeker counterpart of ProxyReader, intended for
 // use cases such as S3 multipart uploads where the AWS SDK requires an
-// io.ReadSeeker. Seek calls reset the bar's current value to the new absolute
-// offset so the bar stays in sync after retries or rewinds. Panics if `rs` is
-// nil. If `rs` is io.ReadCloser then calling Close on the returned value will
-// close the underlying reader. If *Bar instance is already completed or aborted
-// then (nil, ErrDone[*Bar]) is returned.
-func (b *Bar) ProxyReadSeeker(rs io.ReadSeeker) (io.ReadSeekCloser, error) {
+// io.ReadSeeker. Seek calls reset the bar's current value to the new
+// absolute offset so the bar stays in sync after retries or rewinds.
+// Panics if `rs` is nil. If `rs` is io.ReadCloser then calling Close on
+// the returned value will close the underlying reader. If underlying *Bar
+// instance is already completed or aborted then nil is returned.
+func (b *Bar) ProxyReadSeeker(rs io.ReadSeeker) io.ReadSeekCloser {
 	if rs == nil {
 		panic(errors.New("expected non nil io.ReadSeeker"))
 	}
 	select {
 	case <-b.ctx.Done():
-		return nil, ErrDone[*Bar]{nil}
+		return nil
 	default:
-		return newProxyReadSeeker(b, rs), nil
+		return newProxyReadSeeker(rs, b)
 	}
 }
 
 // ProxyWriter wraps io.Writer with metrics required for progress tracking.
-// Panics if `w` is nil. If `w` is io.WriteCloser then calling Close on the
-// returned value will close the underlying writer. If *Bar instance is already
-// completed or aborted then (nil, ErrDone[*Bar]) is returned.
-func (b *Bar) ProxyWriter(w io.Writer) (io.WriteCloser, error) {
+// Panics if `w` is nil. If `w` is io.WriteCloser then calling Close on `pw`
+// will close underlying `w`s io.WriteCloser. If underlying *Bar instance is
+// already completed or aborted then value of `pw` is nil. If underlying
+// *Bar instance was initialized with total <= 0 then it's necessary to call
+// `(*Bar).SetTotal(-1, true)` after copy operation completes. Most of the
+// time it means that there is need to call `(*Bar).SetTotal(-1, true)` after
+// io.Copy(pw, src) returns.
+func (b *Bar) ProxyWriter(w io.Writer) (pw io.WriteCloser) {
 	if w == nil {
 		panic(errors.New("expected non nil io.Writer"))
 	}
 	select {
 	case <-b.ctx.Done():
-		return nil, ErrDone[*Bar]{nil}
+		return nil
 	default:
-		return newProxyWriter(b, w), nil
+		return newProxyWriter(w, b)
 	}
 }
 
@@ -143,9 +152,6 @@ func (b *Bar) Current() int64 {
 // indicate refill event. Refill event may be referred to some retry
 // operation for example.
 func (b *Bar) SetRefill(amount int64) {
-	if amount < 0 {
-		return
-	}
 	select {
 	case b.operateState <- func(s *bState) { s.refill = min(amount, s.current) }:
 	case <-b.ctx.Done():
@@ -157,49 +163,21 @@ func (b *Bar) SetRefillCurrent() {
 	b.SetRefill(math.MaxInt64)
 }
 
-// TraverseDecorators returns a single-use iterator over [int, decor.Decor]
-// the underlying bar contains. int represents decorator's group not an order:
-// 0=prepend and 1=append. If bar is done i.e. called after (*Bar).Wait method
-// then (nil, ErrDone[*Bar]) is returned. Bar's serve/render loop is blocked
-// until iteration is done. Attempt to use an iterator more than once will
-// lead to a panic.
-func (b *Bar) TraverseDecorators() (iter.Seq2[int, decor.Decorator], error) {
-	res := make(chan iter.Seq2[int, decor.Decorator], 1)
+// TraverseDecorators traverses available decorators and calls `cb`
+// on each unwrapped one.
+func (b *Bar) TraverseDecorators(cb func(decor.Decorator)) (ok bool) {
 	select {
 	case b.operateState <- func(s *bState) {
-		done := make(chan struct{})
-		res <- func(yield func(int, decor.Decorator) bool) {
-			defer close(done)
-			for i, group := range s.decorGroups {
-				for _, d := range group {
-					if !yield(i, d) {
-						return
-					}
-				}
+		for _, group := range s.decorGroups {
+			for _, d := range group {
+				cb(unwrap(d))
 			}
 		}
-		<-done
 	}:
-		return <-res, nil
+		return true
 	case <-b.ctx.Done():
-		return nil, ErrDone[*Bar]{nil}
+		return false
 	}
-}
-
-// DecoratorAverageAdjust adjusts decorators implementing decor.AverageDecorator
-// interface. Call if there is need to set start time after decorators have been
-// constructed. Returns ErrDone[*Bar] if called after (*Bar).Wait method.
-func (b *Bar) DecoratorAverageAdjust(start time.Time) error {
-	it, err := b.TraverseDecorators()
-	if err != nil {
-		return err
-	}
-	for _, d := range it {
-		if d, ok := unwrap(d).(decor.AverageDecorator); ok {
-			d.AverageAdjust(start)
-		}
-	}
-	return nil
 }
 
 // EnableTriggerComplete enables triggering complete event for bar
@@ -330,6 +308,16 @@ func (b *Bar) EwmaSetCurrent(current int64, iterDur time.Duration) {
 	}
 }
 
+// DecoratorAverageAdjust adjusts decorators implementing decor.AverageDecorator interface.
+// Call if there is need to set start time after decorators have been constructed.
+func (b *Bar) DecoratorAverageAdjust(start time.Time) {
+	b.TraverseDecorators(func(d decor.Decorator) {
+		if d, ok := d.(decor.AverageDecorator); ok {
+			d.AverageAdjust(start)
+		}
+	})
+}
+
 // SetPriority changes bar's order among multiple bars. Zero is highest
 // priority, i.e. bar will be on top. If you don't need to set priority
 // dynamically, better use BarPriority option.
@@ -339,7 +327,8 @@ func (b *Bar) SetPriority(priority int) {
 
 // Abort interrupts bar's running goroutine. Abort won't be engaged
 // if bar is already in complete state. If drop is true bar will be
-// removed as well.
+// removed as well. To make sure that bar has been removed call
+// `(*Bar).Wait()` method.
 func (b *Bar) Abort(drop bool) {
 	select {
 	case b.operateState <- func(s *bState) {
@@ -413,7 +402,7 @@ func (b *Bar) serve(bs *bState) {
 			if bs.aborted {
 				return
 			}
-			bs.aborted = !bs.completed()
+			bs.aborted = !bs.completed() || context.Cause(b.ctx) != nil
 			return
 		}
 	}
@@ -423,7 +412,7 @@ func (b *Bar) render(tw int) {
 	fn := func(s *bState) {
 		frame := new(renderFrame)
 		stat := s.newStatistics(tw)
-		for p := range s.rowProducers {
+		for p := range s.extender(s.draw) {
 			r, err := p(stat)
 			if err != nil && frame.err == nil {
 				frame.err = err
@@ -462,7 +451,7 @@ func (b *Bar) wSyncTable() decorSyncTable {
 
 func (b *Bar) done() {
 	if b.container.noRenderMode {
-		b.cancel()
+		b.cancel(nil)
 	} else {
 		// Technically this call isn't required, but if refresh rate is set to
 		// one hour for example and bar completes within a few minutes p.Wait()
@@ -571,8 +560,7 @@ func (s *bState) wSyncTable() (table decorSyncTable) {
 				row = append(row, s)
 			}
 		}
-		table[i] = slices.Clip(row[start:])
-		start = len(row)
+		table[i], start = row[start:], len(row)
 	}
 	return table
 }
@@ -622,12 +610,13 @@ func unwrap(d decor.Decorator) decor.Decorator {
 	return d
 }
 
-// makeRowProducers converts fillers to iter.Seq[rowProducer].
-// Each BarFiller suppose to write one line only but it is not enforced.
-// If BarFiller writes more than one line then whole output is going to be
-// corrupted.
-func makeRowProducers(base rowProducer, top bool, fillers ...BarFiller) iter.Seq[rowProducer] {
-	producers := []rowProducer{base}
+// makeRowExtender converts fillers to rowExtender.
+// Each BarFiller suppose to write one line only but this is not enforced.
+// If BarFiller writes more than one line then whole output is going
+// to be corrupted.
+func makeRowExtender(top bool, fillers ...BarFiller) rowExtender {
+	var producers []rowProducer
+	producers = append(producers, nil) // holding space for base producer
 	for _, filler := range fillers {
 		if filler == nil {
 			continue
@@ -648,12 +637,16 @@ func makeRowProducers(base rowProducer, top bool, fillers ...BarFiller) iter.Seq
 	if top {
 		slices.Reverse(producers)
 	}
-	producers = slices.Clip(producers)
-	// this one is going to be iterated on each (*Bar).render
-	return func(yield func(rowProducer) bool) {
-		for _, p := range producers {
-			if !yield(p) {
-				return
+	// this one is going to be called on each (*Bar).render
+	return func(base rowProducer) iter.Seq[rowProducer] {
+		return func(yield func(rowProducer) bool) {
+			for _, p := range producers {
+				if p == nil {
+					p = base
+				}
+				if !yield(p) {
+					break
+				}
 			}
 		}
 	}

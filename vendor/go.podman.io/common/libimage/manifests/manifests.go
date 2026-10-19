@@ -114,8 +114,6 @@ type PushOptions struct {
 	MaxRetries *uint
 	// RetryDelay used for the exponential back off of MaxRetries.
 	RetryDelay *time.Duration
-	// DestinationTimestamp, if set, overwrites the timestamp entries on any tar entries
-	DestinationTimestamp *time.Time
 }
 
 // Create creates a new list containing information about the specified image,
@@ -451,7 +449,6 @@ func (l *list) Push(ctx context.Context, dest types.ImageReference, options Push
 		ForceManifestMIMEType:            singleImageManifestType,
 		EnsureCompressionVariantsExist:   compressionVariants,
 		ForceCompressionFormat:           options.ForceCompressionFormat,
-		DestinationTimestamp:             options.DestinationTimestamp,
 	}
 
 	retryOptions := retry.Options{}
