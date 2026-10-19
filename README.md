@@ -11,14 +11,14 @@ It pulls skills from OCI registries, extracts them locally, and tracks pinned ve
 $ skillctl init
 Initialized skillctl project: skillctl.yaml and skills/
 
-$ skillctl pull skills.cgr.dev/public/github.com/github/awesome-copilot/game-engine
-Pulling skills.cgr.dev/public/github.com/github/awesome-copilot/game-engine ...
-Pulled game-engine (3115f073140c)
-Extracted to skills/game-engine
+$ skillctl pull quay.io/redhat/skills/translator:1.0
+Pulling quay.io/redhat/skills/translator:1.0 ...
+Pulled translator (a1b2c3d4e5f6)
+Extracted to skills/translator
 
 $ skillctl list
-NAME         IMAGE                                                                DIGEST               PATH
-game-engine  skills.cgr.dev/public/github.com/github/awesome-copilot/game-engine  sha256:3115f073140c  skills/game-engine
+NAME        IMAGE                                   DIGEST               PATH
+translator  quay.io/redhat/skills/translator:1.0    sha256:a1b2c3d4e5f6  skills/translator
 ```
 
 ## Commands
@@ -36,10 +36,10 @@ game-engine  skills.cgr.dev/public/github.com/github/awesome-copilot/game-engine
 ```yaml
 apiVersion: v1
 skills:
-    - name: game-engine
-      image: skills.cgr.dev/public/github.com/github/awesome-copilot/game-engine
-      digest: sha256:3115f073140c3bee57d14ef71eaf8760a834a6883c576e6ce9fe3e42f0b9668e
-      extractPath: skills/game-engine
+    - name: translator
+      image: quay.io/redhat/skills/translator:1.0
+      digest: sha256:a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd
+      extractPath: skills/translator
 ```
 
 This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl pull` to update extracted files.
