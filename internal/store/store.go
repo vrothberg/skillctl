@@ -15,8 +15,11 @@ import (
 
 const defaultStoreDir = ".local/share/skillctl/store"
 
+const defaultPolicyJSON = `{"default":[{"type":"insecureAcceptAnything"}]}`
+
 type Store struct {
 	artifact *libartifact.ArtifactStore
+	sc       *types.SystemContext
 }
 
 func DefaultStorePath() (string, error) {
@@ -29,11 +32,48 @@ func DefaultStorePath() (string, error) {
 
 func New(storePath string) (*Store, error) {
 	sc := &types.SystemContext{}
+
+	policyPath, err := ensurePolicyJSON(storePath)
+	if err != nil {
+		return nil, err
+	}
+	if policyPath != "" {
+		sc.SignaturePolicyPath = policyPath
+	}
+
 	as, err := libartifact.NewArtifactStore(storePath, sc)
 	if err != nil {
 		return nil, fmt.Errorf("creating artifact store: %w", err)
 	}
-	return &Store{artifact: as}, nil
+	return &Store{artifact: as, sc: sc}, nil
+}
+
+// ensurePolicyJSON returns a path to a policy.json file. If one already exists
+// at the standard system locations, it returns "" so the library uses the
+// system default. Otherwise it creates a permissive default under storePath.
+func ensurePolicyJSON(storePath string) (string, error) {
+	for _, p := range []string{
+		filepath.Join(os.Getenv("HOME"), ".config/containers/policy.json"),
+		"/etc/containers/policy.json",
+		"/usr/share/containers/policy.json",
+	} {
+		if _, err := os.Stat(p); err == nil {
+			return "", nil
+		}
+	}
+
+	policyPath := filepath.Join(storePath, "policy.json")
+	if _, err := os.Stat(policyPath); err == nil {
+		return policyPath, nil
+	}
+
+	if err := os.MkdirAll(storePath, 0o700); err != nil {
+		return "", fmt.Errorf("creating store directory: %w", err)
+	}
+	if err := os.WriteFile(policyPath, []byte(defaultPolicyJSON), 0o644); err != nil {
+		return "", fmt.Errorf("writing default policy.json: %w", err)
+	}
+	return policyPath, nil
 }
 
 func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error) {
