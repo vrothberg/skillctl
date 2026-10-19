@@ -1,4 +1,7 @@
+FROM golangci/golangci-lint:v2.15.0 AS lint
 FROM golang:1.27
+
+COPY --from=lint /usr/bin/golangci-lint /usr/bin/golangci-lint
 
 WORKDIR /src/skillctl
 

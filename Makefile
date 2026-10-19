@@ -27,8 +27,7 @@ clean:
 
 .PHONY: lint
 lint:
-	cd tools && $(GO) build -mod=vendor -o ../bin/golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint
-	./bin/golangci-lint run ./...
+	golangci-lint run ./...
 
 .PHONY: vendor
 vendor:
@@ -46,9 +45,8 @@ validate-vendor: vendor
 container-image:
 	$(CONTAINER_RUNTIME) build -f Containerfile -t $(CONTAINER_IMAGE) .
 
-.PHONY: container-test
-container-test: container-image
-	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make test
+container-%: container-image
+	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/src/skillctl $(CONTAINER_IMAGE) make $*
 
 .PHONY: container-shell
 container-shell: container-image
