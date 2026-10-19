@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+# Tests for list with populated manifests are in pull.bats.
+
 load helpers
 
 @test "list without init fails" {

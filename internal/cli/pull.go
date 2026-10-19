@@ -12,7 +12,9 @@ import (
 )
 
 func pullCommand() *cobra.Command {
-	return &cobra.Command{
+	var name string
+
+	cmd := &cobra.Command{
 		Use:   "pull IMAGE",
 		Short: "Pull a skill from an OCI registry and extract it locally",
 		Args:  cobra.ExactArgs(1),
@@ -36,7 +38,9 @@ func pullCommand() *cobra.Command {
 				return err
 			}
 
-			name := skillName(imageRef)
+			if name == "" {
+				name = skillName(imageRef)
+			}
 			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
 
 			if err := s.Extract(ctx, imageRef, extractPath); err != nil {
@@ -65,6 +69,10 @@ func pullCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&name, "name", "", "override the skill name (default: derived from image reference)")
+
+	return cmd
 }
 
 func skillName(imageRef string) string {
