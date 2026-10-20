@@ -13,8 +13,11 @@ import (
 
 func pullCommand() *cobra.Command {
 	var (
-		name  string
-		force bool
+		name            string
+		force           bool
+		signaturePolicy string
+		registriesDir   string
+		tlsVerify       bool
 	)
 
 	cmd := &cobra.Command{
@@ -36,7 +39,11 @@ func pullCommand() *cobra.Command {
 				return err
 			}
 
-			s, err := store.New(storePath)
+			s, err := store.NewWithOptions(storePath, store.StoreOptions{
+				SignaturePolicyPath:    signaturePolicy,
+				RegistriesDirPath:     registriesDir,
+				InsecureSkipTLSVerify: !tlsVerify,
+			})
 			if err != nil {
 				return err
 			}
@@ -83,6 +90,9 @@ func pullCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "override the skill name (default: derived from image reference)")
 	cmd.Flags().BoolVar(&force, "force", false, "force pull and extraction even if the digest is unchanged")
+	cmd.Flags().StringVar(&signaturePolicy, "signature-policy", "", "path to a signature policy.json file")
+	cmd.Flags().StringVar(&registriesDir, "registries-dir", "", "path to a registries.d directory")
+	cmd.Flags().BoolVar(&tlsVerify, "tls-verify", true, "require HTTPS and verify TLS certificates")
 
 	return cmd
 }
