@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -83,6 +84,7 @@ func pullCommand() *cobra.Command {
 			})
 
 			if err := m.Save(manifestPath); err != nil {
+				os.RemoveAll(extractPath)
 				return fmt.Errorf("updating manifest: %w", err)
 			}
 
