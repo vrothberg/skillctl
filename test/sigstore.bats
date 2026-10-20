@@ -22,7 +22,7 @@ load helpers
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "signature" ]] || [[ "$output" =~ "required" ]]
+    [[ "$output" =~ "A signature was required, but no signature exists" ]]
 }
 
 @test "pull signed artifact succeeds with sigstore policy" {
@@ -70,6 +70,7 @@ load helpers
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -ne 0 ]
+    [[ "$output" =~ "cryptographic signature verification failed" ]]
 }
 
 @test "pull with permissive policy succeeds for unsigned artifact" {
@@ -86,6 +87,7 @@ load helpers
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
+    [[ "$output" =~ "Pulled" ]]
     [ -f skills/skill/skill.md ]
 }
 
@@ -118,4 +120,5 @@ load helpers
         --registries-dir "$registries_d" \
         --tls-verify=false
     [ "$status" -ne 0 ]
+    [[ "$output" =~ "A signature was required, but no signature exists" ]]
 }
