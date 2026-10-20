@@ -30,10 +30,11 @@ function teardown() {
 function run_skillctl() {
     run "$SKILLCTL" "$@"
     if [ "$status" -ne 0 ]; then
-        echo "-------------"
-        echo "CLI: $SKILLCTL $*"
-        echo "OUT: $output"
-        echo "-------------"
+        echo "run_skillctl failed:"
+        echo "  CLI: $SKILLCTL $*"
+        echo "  EXIT: $status"
+        echo "  OUT: $output"
+        return 1
     fi
 }
 

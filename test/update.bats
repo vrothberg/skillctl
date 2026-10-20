@@ -57,3 +57,21 @@ load helpers
     [[ "$(cat skills/skill-v1/counter.txt)" == "1" ]]
     [[ "$(cat skills/skill-v2/counter.txt)" == "2" ]]
 }
+
+@test "update handles image tag change (Renovate workflow)" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "1" ]]
+
+    # Simulate Renovate bumping the tag in the manifest
+    sed -i'' -e 's|skillctl-example-skill:v1.0.0|skillctl-example-skill:v1.0.1|' skillctl.yaml
+
+    run_skillctl update
+    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
+
+    # Verify files reflect the new version
+    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "2" ]]
+
+    # Verify manifest has the new image reference
+    grep -q "v1.0.1" skillctl.yaml
+}

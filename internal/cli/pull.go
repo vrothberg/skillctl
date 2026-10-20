@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -58,6 +59,10 @@ func pullCommand() *cobra.Command {
 				name = skillName(imageRef)
 			}
 
+			if err := manifest.ValidateSkillName(name); err != nil {
+				return err
+			}
+
 			if !force {
 				if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
 					fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
@@ -79,6 +84,7 @@ func pullCommand() *cobra.Command {
 			})
 
 			if err := m.Save(manifestPath); err != nil {
+				_ = os.RemoveAll(extractPath)
 				return fmt.Errorf("updating manifest: %w", err)
 			}
 

@@ -75,12 +75,12 @@ func updateCommand() *cobra.Command {
 					ExtractPath: manifest.SkillExtractPath(skill.Name),
 				})
 
+				if err := m.Save(manifestPath); err != nil {
+					return fmt.Errorf("updating manifest: %w", err)
+				}
+
 				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.String()[:19])
 				updated++
-			}
-
-			if err := m.Save(manifestPath); err != nil {
-				return fmt.Errorf("updating manifest: %w", err)
 			}
 
 			fmt.Printf("Updated %d of %d skill(s)\n", updated, len(m.Skills))

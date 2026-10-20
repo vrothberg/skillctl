@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -53,8 +54,25 @@ func (m *Manifest) Save(path string) error {
 		return fmt.Errorf("marshaling manifest: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".skillctl-*.yaml")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("writing manifest: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("closing manifest: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("renaming manifest: %w", err)
 	}
 
 	return nil
@@ -85,6 +103,19 @@ func (m *Manifest) Find(name string) *Skill {
 		if m.Skills[i].Name == name {
 			return &m.Skills[i]
 		}
+	}
+	return nil
+}
+
+func ValidateSkillName(name string) error {
+	if name == "" {
+		return fmt.Errorf("skill name must not be empty")
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return fmt.Errorf("skill name %q must not contain path separators", name)
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("skill name %q is not allowed", name)
 	}
 	return nil
 }
