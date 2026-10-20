@@ -28,6 +28,14 @@ load helpers
     [[ "$output" != *"unknown flag"* ]]
 }
 
+@test "pull rejects --name with path traversal" {
+    run_skillctl init
+    run "$SKILLCTL" pull --name "../../etc/evil" quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "path separators" ]]
+    [ ! -d "../../etc/evil" ]
+}
+
 @test "pull downloads and extracts a skill" {
     run_skillctl init
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0

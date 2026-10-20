@@ -136,6 +136,22 @@ func TestSkillExtractPath(t *testing.T) {
 	}
 }
 
+func TestValidateSkillName(t *testing.T) {
+	valid := []string{"translator", "my-skill", "skill_v2", "skill.config"}
+	for _, name := range valid {
+		if err := ValidateSkillName(name); err != nil {
+			t.Errorf("expected %q to be valid, got: %v", name, err)
+		}
+	}
+
+	invalid := []string{"", "../../etc", "../foo", "foo/bar", "foo\\bar", ".", ".."}
+	for _, name := range invalid {
+		if err := ValidateSkillName(name); err == nil {
+			t.Errorf("expected %q to be rejected", name)
+		}
+	}
+}
+
 func TestLoadNonexistent(t *testing.T) {
 	_, err := Load("/nonexistent/path/skillctl.yaml")
 	if err == nil {

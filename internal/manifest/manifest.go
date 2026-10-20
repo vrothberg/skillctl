@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -85,6 +86,19 @@ func (m *Manifest) Find(name string) *Skill {
 		if m.Skills[i].Name == name {
 			return &m.Skills[i]
 		}
+	}
+	return nil
+}
+
+func ValidateSkillName(name string) error {
+	if name == "" {
+		return fmt.Errorf("skill name must not be empty")
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return fmt.Errorf("skill name %q must not contain path separators", name)
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("skill name %q is not allowed", name)
 	}
 	return nil
 }

@@ -20,6 +20,10 @@ func removeCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
+			if err := manifest.ValidateSkillName(name); err != nil {
+				return err
+			}
+
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
 			m, err := manifest.Load(manifestPath)
 			if err != nil {

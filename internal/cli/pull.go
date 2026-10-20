@@ -58,6 +58,10 @@ func pullCommand() *cobra.Command {
 				name = skillName(imageRef)
 			}
 
+			if err := manifest.ValidateSkillName(name); err != nil {
+				return err
+			}
+
 			if !force {
 				if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
 					fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
