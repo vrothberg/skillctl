@@ -49,6 +49,30 @@ load helpers
     [[ "$output" =~ "quay.io/vrothberg/skillctl-example-skill:v1.0.0" ]]
 }
 
+@test "pull skips extraction when digest unchanged" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+
+    # Second pull of the same image should skip extraction
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "is up to date" ]]
+}
+
+@test "pull --force re-extracts even when digest unchanged" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+
+    # Force pull should re-extract
+    run_skillctl pull --force quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Pulled" ]]
+    [[ "$output" != *"is up to date"* ]]
+    [ -f skills/skillctl-example-skill/counter.txt ]
+}
+
 @test "pull two versions with --name" {
     run_skillctl init
     run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0

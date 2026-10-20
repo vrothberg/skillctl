@@ -12,7 +12,10 @@ import (
 )
 
 func pullCommand() *cobra.Command {
-	var name string
+	var (
+		name  string
+		force bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "pull IMAGE",
@@ -47,6 +50,14 @@ func pullCommand() *cobra.Command {
 			if name == "" {
 				name = skillName(imageRef)
 			}
+
+			if !force {
+				if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
+					fmt.Printf("%s is up to date (%s)\n", name, d.Encoded()[:12])
+					return nil
+				}
+			}
+
 			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
 
 			if err := s.Extract(ctx, imageRef, extractPath); err != nil {
@@ -71,6 +82,7 @@ func pullCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "override the skill name (default: derived from image reference)")
+	cmd.Flags().BoolVar(&force, "force", false, "force pull and extraction even if the digest is unchanged")
 
 	return cmd
 }
