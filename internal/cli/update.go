@@ -66,7 +66,7 @@ func updateCommand() *cobra.Command {
 					ExtractPath: manifest.SkillExtractPath(skill.Name),
 				})
 
-				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.Encoded()[:12])
+				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.String()[:19])
 				updated++
 			}
 

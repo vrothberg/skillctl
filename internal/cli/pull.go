@@ -53,7 +53,7 @@ func pullCommand() *cobra.Command {
 
 			if !force {
 				if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
-					fmt.Printf("%s is up to date (%s)\n", name, d.Encoded()[:12])
+					fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
 					return nil
 				}
 			}
@@ -75,7 +75,7 @@ func pullCommand() *cobra.Command {
 				return fmt.Errorf("updating manifest: %w", err)
 			}
 
-			fmt.Printf("Pulled %s (%s)\n", name, d.Encoded()[:12])
+			fmt.Printf("Pulled %s (%s)\n", name, d.String()[:19])
 			fmt.Printf("Extracted to %s\n", extractPath)
 			return nil
 		},
