@@ -1,7 +1,9 @@
+FROM registry:2 AS registry
 FROM golangci/golangci-lint:v2.15.0 AS lint
 FROM golang:1.27
 
 COPY --from=lint /usr/bin/golangci-lint /usr/bin/golangci-lint
+COPY --from=registry /bin/registry /usr/bin/registry
 
 WORKDIR /src/skillctl
 
@@ -11,7 +13,9 @@ RUN apt-get update && apt-get install -y \
     libbtrfs-dev \
     libgpgme-dev \
     libdevmapper-dev \
+    openssl \
     pkg-config \
+    podman \
     && rm -rf /var/lib/apt/lists/*
 
 # Go embeds VCS info (commit, dirty flag) into binaries at build time.
