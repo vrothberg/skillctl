@@ -22,6 +22,12 @@ type Store struct {
 	sc       *types.SystemContext
 }
 
+type StoreOptions struct {
+	SignaturePolicyPath    string
+	RegistriesDirPath     string
+	InsecureSkipTLSVerify bool
+}
+
 func DefaultStorePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -31,14 +37,30 @@ func DefaultStorePath() (string, error) {
 }
 
 func New(storePath string) (*Store, error) {
+	return NewWithOptions(storePath, StoreOptions{})
+}
+
+func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	sc := &types.SystemContext{}
 
-	policyPath, err := ensurePolicyJSON(storePath)
-	if err != nil {
-		return nil, err
+	if opts.SignaturePolicyPath != "" {
+		sc.SignaturePolicyPath = opts.SignaturePolicyPath
+	} else {
+		policyPath, err := ensurePolicyJSON(storePath)
+		if err != nil {
+			return nil, err
+		}
+		if policyPath != "" {
+			sc.SignaturePolicyPath = policyPath
+		}
 	}
-	if policyPath != "" {
-		sc.SignaturePolicyPath = policyPath
+
+	if opts.RegistriesDirPath != "" {
+		sc.RegistriesDirPath = opts.RegistriesDirPath
+	}
+
+	if opts.InsecureSkipTLSVerify {
+		sc.DockerInsecureSkipTLSVerify = types.OptionalBoolTrue
 	}
 
 	as, err := libartifact.NewArtifactStore(storePath, sc)
@@ -87,7 +109,11 @@ func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error
 		return "", fmt.Errorf("parsing image reference %q: %w", imageRef, err)
 	}
 
-	opts := libimage.CopyOptions{}
+	opts := libimage.CopyOptions{
+		// OCI layout does not support storing sigstore signatures, so
+		// strip them after verification to avoid a copy error.
+		RemoveSignatures: true,
+	}
 	d, err := s.artifact.Pull(ctx, ref, opts)
 	if err != nil {
 		return "", fmt.Errorf("pulling %q: %w", imageRef, err)

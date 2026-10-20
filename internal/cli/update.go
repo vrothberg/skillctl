@@ -11,7 +11,12 @@ import (
 )
 
 func updateCommand() *cobra.Command {
-	var force bool
+	var (
+		force           bool
+		signaturePolicy string
+		registriesDir   string
+		tlsVerify       bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -36,7 +41,11 @@ func updateCommand() *cobra.Command {
 				return err
 			}
 
-			s, err := store.New(storePath)
+			s, err := store.NewWithOptions(storePath, store.StoreOptions{
+				SignaturePolicyPath:    signaturePolicy,
+				RegistriesDirPath:     registriesDir,
+				InsecureSkipTLSVerify: !tlsVerify,
+			})
 			if err != nil {
 				return err
 			}
@@ -80,6 +89,9 @@ func updateCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "force extraction even if digests are unchanged")
+	cmd.Flags().StringVar(&signaturePolicy, "signature-policy", "", "path to a signature policy.json file")
+	cmd.Flags().StringVar(&registriesDir, "registries-dir", "", "path to a registries.d directory")
+	cmd.Flags().BoolVar(&tlsVerify, "tls-verify", true, "require HTTPS and verify TLS certificates")
 
 	return cmd
 }
