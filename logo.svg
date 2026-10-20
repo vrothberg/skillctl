@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400">
+
+  <!-- Outlined red piece with nested solid gray piece -->
+
+  <g transform="translate(155, 195)">
+    <path d="
+      M-80,-80 L-10,-80
+      C-10,-83 -14,-89 -14,-96 C-14,-114 14,-114 14,-96 C14,-89 10,-83 10,-80
+      L80,-80 L80,-10
+      C83,-10 89,-14 96,-14 C114,-14 114,14 96,14 C89,14 83,10 80,10
+      L80,80 L10,80
+      C10,77 14,71 14,64 C14,46 -14,46 -14,64 C-14,71 -10,77 -10,80
+      L-80,80 L-80,10
+      C-77,10 -71,14 -64,14 C-46,14 -46,-14 -64,-14 C-71,-14 -77,-10 -80,-10
+      Z"
+      fill="none" stroke="#EE0000" stroke-width="16" stroke-linejoin="round"/>
+  </g>
+
+  <g transform="translate(155, 195)">
+    <path d="
+      M-30,-30 L-3,-30
+      C-3,-32 -5,-35 -5,-39 C-5,-47 5,-47 5,-39 C5,-35 3,-32 3,-30
+      L30,-30 L30,-3
+      C32,-3 35,-5 39,-5 C47,-5 47,5 39,5 C35,5 32,3 30,3
+      L30,30 L3,30
+      C3,28 5,25 5,21 C5,13 -5,13 -5,21 C-5,25 -3,28 -3,30
+      L-30,30 L-30,3
+      C-28,3 -25,5 -21,5 C-13,5 -13,-5 -21,-5 C-25,-5 -28,-3 -30,-3
+      Z"
+      fill="#4A4A4A" stroke="none"/>
+  </g>
+
+  <text x="370" y="240" font-family="system-ui, -apple-system, 'Helvetica Neue', sans-serif" font-weight="600" font-size="130" fill="#4A4A4A" letter-spacing="-2">skill</text>
+  <text x="800" y="240" font-family="system-ui, -apple-system, 'Helvetica Neue', sans-serif" font-weight="600" font-size="130" fill="#EE0000" letter-spacing="-2">ctl</text>
+</svg>
