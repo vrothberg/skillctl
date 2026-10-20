@@ -136,6 +136,54 @@ func TestSkillExtractPath(t *testing.T) {
 	}
 }
 
+func TestSaveOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.yaml")
+
+	m := New()
+	m.AddOrUpdate(Skill{Name: "a", Image: "img:1", Digest: "sha256:aaa"})
+	if err := m.Save(path); err != nil {
+		t.Fatalf("first Save: %v", err)
+	}
+
+	m.AddOrUpdate(Skill{Name: "b", Image: "img:2", Digest: "sha256:bbb"})
+	if err := m.Save(path); err != nil {
+		t.Fatalf("second Save: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded.Skills) != 2 {
+		t.Fatalf("expected 2 skills, got %d", len(loaded.Skills))
+	}
+}
+
+func TestRemoveAndSaveRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.yaml")
+
+	m := New()
+	m.AddOrUpdate(Skill{Name: "a", Image: "img:1"})
+	if err := m.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	m.Remove("a")
+	if err := m.Save(path); err != nil {
+		t.Fatalf("Save after remove: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(loaded.Skills) != 0 {
+		t.Fatalf("expected 0 skills, got %d", len(loaded.Skills))
+	}
+}
+
 func TestValidateSkillName(t *testing.T) {
 	valid := []string{"translator", "my-skill", "skill_v2", "skill.config"}
 	for _, name := range valid {
