@@ -18,6 +18,7 @@ func Root() *cobra.Command {
 		pullCommand(),
 		listCommand(),
 		updateCommand(),
+		versionCommand(),
 	)
 
 	return cmd

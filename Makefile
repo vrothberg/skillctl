@@ -1,6 +1,11 @@
 GO ?= go
-GO_BUILD = $(GO) build -mod=vendor
 GO_TEST = $(GO) test -mod=vendor
+
+VERSION := $(shell cat ./VERSION)
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+LDFLAGS = -X github.com/vrothberg/skillctl/internal/version.Version=$(VERSION) \
+          -X github.com/vrothberg/skillctl/internal/version.Commit=$(COMMIT)
+GO_BUILD = $(GO) build -mod=vendor -ldflags "$(LDFLAGS)"
 
 BINARY := bin/skillctl
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
