@@ -13,12 +13,15 @@ Initialized skillctl project: skillctl.yaml and skills/
 
 $ skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
 Pulling quay.io/vrothberg/skillctl-example-skill:v1.0.0 ...
-Pulled skillctl-example-skill (c696d5bb34aa)
+Pulled skillctl-example-skill (sha256:c696d5bb34aa)
 Extracted to skills/skillctl-example-skill
 
 $ skillctl list
 NAME                    IMAGE                                            DIGEST               PATH
 skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:c696d5bb34aa  skills/skillctl-example-skill
+
+$ skillctl remove skillctl-example-skill
+Removed skillctl-example-skill
 ```
 
 ## Commands
@@ -28,7 +31,9 @@ skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:
 | `skillctl init` | Create `skillctl.yaml` and `skills/` in the current directory |
 | `skillctl pull IMAGE` | Pull a skill from an OCI registry, extract it, and update the manifest |
 | `skillctl update` | Pull and extract all skills listed in the manifest |
+| `skillctl remove NAME` | Remove a skill from the manifest and delete its extracted files |
 | `skillctl list` | List skills tracked in the manifest |
+| `skillctl version` | Print the version |
 
 ## Manifest format
 
