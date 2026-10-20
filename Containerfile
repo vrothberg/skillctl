@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     libdevmapper-dev \
     openssl \
     pkg-config \
-    podman \
+    skopeo \
     && rm -rf /var/lib/apt/lists/*
 
 # Go embeds VCS info (commit, dirty flag) into binaries at build time.

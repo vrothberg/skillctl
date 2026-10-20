@@ -109,7 +109,11 @@ func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error
 		return "", fmt.Errorf("parsing image reference %q: %w", imageRef, err)
 	}
 
-	opts := libimage.CopyOptions{}
+	opts := libimage.CopyOptions{
+		// OCI layout does not support storing sigstore signatures, so
+		// strip them after verification to avoid a copy error.
+		RemoveSignatures: true,
+	}
 	d, err := s.artifact.Pull(ctx, ref, opts)
 	if err != nil {
 		return "", fmt.Errorf("pulling %q: %w", imageRef, err)

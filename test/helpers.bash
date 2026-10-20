@@ -160,10 +160,10 @@ function push_artifact() {
     local permissive_policy="$TEST_WORKDIR/permissive-policy.json"
     echo '{"default":[{"type":"insecureAcceptAnything"}]}' > "$permissive_policy"
 
-    podman push \
-        --tls-verify=false \
-        --signature-policy "$permissive_policy" \
-        --registries-conf-dir "$registries_d" \
+    skopeo copy \
+        --dest-tls-verify=false \
+        --policy "$permissive_policy" \
+        --registries.d "$registries_d" \
         "${sign_args[@]}" \
         "oci:${oci_dir}" \
         "docker://${ref}"
