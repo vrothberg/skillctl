@@ -55,10 +55,73 @@ See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-e
 ## Signature verification
 
 Signature verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
-Configure verification through your system's `/etc/containers/policy.json` or `~/.config/containers/policy.json`.
 See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the full specification.
 
-On systems without container tooling installed, skillctl creates a permissive default policy. To enforce signature verification, create a policy file at one of the standard paths.
+On systems without container tooling installed, skillctl creates a permissive default policy.
+To enforce signature verification, configure a `policy.json` and a `registries.d` directory.
+
+### System-wide configuration
+
+The standard paths are `/etc/containers/policy.json` (or `~/.config/containers/policy.json`) and `/etc/containers/registries.d/`.
+When these are configured, skillctl and podman both use them automatically, no flags needed.
+
+For per-invocation overrides, pass `--signature-policy` and `--registries-dir` to `pull` or `update`.
+
+### Example: verifying Red Hat image signatures
+
+Red Hat signs all images on `registry.access.redhat.com` with sigstore.
+You can verify these signatures with skillctl the same way you would with `cosign verify`.
+
+Download the Red Hat signing key:
+
+```console
+$ curl -sLO https://security.access.redhat.com/data/63405576.txt
+```
+
+On RHEL and Fedora, the signing key is distributed with the operating system, so this step can be skipped.
+
+Create a policy requiring sigstore verification for `registry.access.redhat.com`:
+
+```console
+$ cat > policy.json <<EOF
+{
+    "default": [{"type": "insecureAcceptAnything"}],
+    "transports": {
+        "docker": {
+            "registry.access.redhat.com": [{
+                "type": "sigstoreSigned",
+                "keyPath": "63405576.txt"
+            }]
+        }
+    }
+}
+EOF
+```
+
+Enable sigstore attachment lookup for the registry.
+This can go into `/etc/containers/registries.d/` for system-wide use or into a custom directory passed via `--registries-dir`:
+
+```console
+$ mkdir -p registries.d
+$ cat > registries.d/redhat.yaml <<EOF
+docker:
+    registry.access.redhat.com:
+        use-sigstore-attachments: true
+EOF
+```
+
+Pull with signature verification:
+
+```console
+$ skillctl pull \
+    --signature-policy policy.json \
+    --registries-dir registries.d \
+    registry.access.redhat.com/hi/static:latest
+Pulled static (sha256:f7a764cae676)
+Extracted to skills/static
+```
+
+When `policy.json` and `registries.d/` are installed at the standard system paths, the flags can be omitted entirely.
 
 ## Building
 
