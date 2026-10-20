@@ -94,6 +94,13 @@ demonstrates the full Renovate integration: Renovate detects OCI image
 references in `skillctl.yaml` via a custom regex manager, opens PRs to bump
 versions, and CI runs `skillctl update` to pull and extract updated skills.
 
+## Testing conventions
+
+- Always check command output and error messages, not just exit statuses.
+  Exit codes confirm pass/fail but do not catch regressions in user-facing
+  messages or error paths. Match the expected output string or substring in
+  every test assertion.
+
 ## Git conventions
 
 - All changes go through pull requests. Never push directly to main.
