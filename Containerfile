@@ -1,4 +1,4 @@
-FROM registry:2 AS registry
+FROM registry:3 AS registry
 FROM golangci/golangci-lint:v2.15.0 AS lint
 FROM golang:1.27
 
