@@ -1,9 +1,6 @@
 <p align="center">
   <img src="logo.svg" alt="skillctl logo" width="400">
 </p>
-
-# skillctl
-
 Manage AI agent skills as OCI artifacts with the same supply-chain guarantees as container images.
 
 skillctl is a thin CLI built on top of podman's [libartifact](https://pkg.go.dev/go.podman.io/common/pkg/libartifact) package.
