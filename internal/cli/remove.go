@@ -37,13 +37,13 @@ func removeCommand() *cobra.Command {
 				return fmt.Errorf("skill %q not found in manifest", name)
 			}
 
+			if err := m.Save(manifestPath); err != nil {
+				return fmt.Errorf("updating manifest: %w", err)
+			}
+
 			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
 			if err := os.RemoveAll(extractPath); err != nil {
 				return fmt.Errorf("removing extracted files: %w", err)
-			}
-
-			if err := m.Save(manifestPath); err != nil {
-				return fmt.Errorf("updating manifest: %w", err)
 			}
 
 			fmt.Printf("Removed %s\n", name)
