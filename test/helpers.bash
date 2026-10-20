@@ -1,3 +1,7 @@
+# Registry lifecycle, sigstore policy, and registries.d helpers are based on
+# podman's test infrastructure (github.com/containers/podman, test/e2e and
+# test/system).
+
 SKILLCTL=${SKILLCTL:-$(pwd)/bin/skillctl}
 TEST_WORKDIR=""
 REGISTRY_PID=""

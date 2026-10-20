@@ -1,4 +1,7 @@
 #!/usr/bin/env bats
+#
+# Sigstore signature verification tests, inspired by podman's e2e signing
+# tests (github.com/containers/podman, test/e2e).
 
 load helpers
 
