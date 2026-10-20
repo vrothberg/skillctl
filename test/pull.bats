@@ -81,6 +81,24 @@ load helpers
     [ -f skills/skillctl-example-skill/counter.txt ]
 }
 
+@test "pull upgrades a skill in-place to a new version" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "1" ]]
+
+    # Pull a newer version of the same skill (same derived name)
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    [[ "$output" =~ "Pulled" ]]
+    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "2" ]]
+
+    # Manifest should have exactly one entry pointing to the new version
+    grep -q "v1.0.1" skillctl.yaml
+    run_skillctl list
+    local count
+    count=$(echo "$output" | grep -c "skillctl-example-skill")
+    [ "$count" -eq 1 ]
+}
+
 @test "pull two versions with --name" {
     run_skillctl init
     run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
