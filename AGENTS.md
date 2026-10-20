@@ -47,6 +47,13 @@ The `container-%` pattern rule in the Makefile wraps any make target to run
 inside the container. For example, `make container-build` runs `make build`
 inside the container.
 
+**Before committing any Go changes, always run `make container-lint` and fix
+all errors.** CI runs lint as a separate job and will reject code with lint
+failures. Common issues include unchecked error return values (`errcheck`),
+which the linter enforces strictly, even for cleanup calls like `os.Remove` in
+error paths. Use blank-identifier assignments (e.g., `_ = os.Remove(...)`) to
+explicitly discard errors that are intentionally ignored.
+
 To run a single test file without rebuilding everything:
 
 ```bash
