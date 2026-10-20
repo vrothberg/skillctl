@@ -52,8 +52,13 @@ func New(storePath string) (*Store, error) {
 // at the standard system locations, it returns "" so the library uses the
 // system default. Otherwise it creates a permissive default under storePath.
 func ensurePolicyJSON(storePath string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("determining home directory: %w", err)
+	}
+
 	for _, p := range []string{
-		filepath.Join(os.Getenv("HOME"), ".config/containers/policy.json"),
+		filepath.Join(home, ".config/containers/policy.json"),
 		"/etc/containers/policy.json",
 		"/usr/share/containers/policy.json",
 	} {

@@ -12,7 +12,10 @@ import (
 )
 
 func pullCommand() *cobra.Command {
-	var name string
+	var (
+		name  string
+		force bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "pull IMAGE",
@@ -21,6 +24,12 @@ func pullCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			imageRef := args[0]
 			ctx := context.Background()
+
+			manifestPath := filepath.Join(".", manifest.DefaultFile)
+			m, err := manifest.Load(manifestPath)
+			if err != nil {
+				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+			}
 
 			storePath, err := store.DefaultStorePath()
 			if err != nil {
@@ -41,16 +50,18 @@ func pullCommand() *cobra.Command {
 			if name == "" {
 				name = skillName(imageRef)
 			}
+
+			if !force {
+				if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
+					fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
+					return nil
+				}
+			}
+
 			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
 
 			if err := s.Extract(ctx, imageRef, extractPath); err != nil {
 				return err
-			}
-
-			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
-			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
 			}
 
 			m.AddOrUpdate(manifest.Skill{
@@ -64,13 +75,14 @@ func pullCommand() *cobra.Command {
 				return fmt.Errorf("updating manifest: %w", err)
 			}
 
-			fmt.Printf("Pulled %s (%s)\n", name, d.Encoded()[:12])
+			fmt.Printf("Pulled %s (%s)\n", name, d.String()[:19])
 			fmt.Printf("Extracted to %s\n", extractPath)
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "override the skill name (default: derived from image reference)")
+	cmd.Flags().BoolVar(&force, "force", false, "force pull and extraction even if the digest is unchanged")
 
 	return cmd
 }

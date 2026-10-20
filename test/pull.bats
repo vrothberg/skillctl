@@ -2,9 +2,11 @@
 
 load helpers
 
-@test "pull without init fails" {
-    run "$SKILLCTL" pull quay.io/fake/skill:latest
+@test "pull without init fails without extracting" {
+    run "$SKILLCTL" pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -ne 0 ]
+    # Must not leave orphaned files on disk
+    [ ! -d skills ]
 }
 
 @test "pull requires an argument" {
@@ -45,6 +47,30 @@ load helpers
     [ "$status" -eq 0 ]
     [[ "$output" =~ "skillctl-example-skill" ]]
     [[ "$output" =~ "quay.io/vrothberg/skillctl-example-skill:v1.0.0" ]]
+}
+
+@test "pull skips extraction when digest unchanged" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+
+    # Second pull of the same image should skip extraction
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "is up to date" ]]
+}
+
+@test "pull --force re-extracts even when digest unchanged" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+
+    # Force pull should re-extract
+    run_skillctl pull --force quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Pulled" ]]
+    [[ "$output" != *"is up to date"* ]]
+    [ -f skills/skillctl-example-skill/counter.txt ]
 }
 
 @test "pull two versions with --name" {

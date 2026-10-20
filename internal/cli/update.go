@@ -11,7 +11,9 @@ import (
 )
 
 func updateCommand() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+
+	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Pull and extract all skills listed in the manifest",
 		Args:  cobra.NoArgs,
@@ -47,7 +49,7 @@ func updateCommand() *cobra.Command {
 					return fmt.Errorf("pulling %s: %w", skill.Name, err)
 				}
 
-				if d.String() == skill.Digest {
+				if !force && d.String() == skill.Digest {
 					fmt.Printf("  %s is up to date\n", skill.Name)
 					continue
 				}
@@ -64,7 +66,7 @@ func updateCommand() *cobra.Command {
 					ExtractPath: manifest.SkillExtractPath(skill.Name),
 				})
 
-				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.Encoded()[:12])
+				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.String()[:19])
 				updated++
 			}
 
@@ -76,4 +78,8 @@ func updateCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "force extraction even if digests are unchanged")
+
+	return cmd
 }
