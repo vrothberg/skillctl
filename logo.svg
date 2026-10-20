@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200" width="760" height="200">
+  <!-- "skillctl" pixel art, monochrome dark gray, tighter layout -->
+  <!-- 5x7 pixel grid per char, 12px pixels, 2px gap = 14px pitch -->
+
+  <g transform="translate(30, 25)">
+    <!-- S -->
+    <g fill="#333333">
+      <rect x="14" y="0" width="12" height="12"/>
+      <rect x="28" y="0" width="12" height="12"/>
+      <rect x="42" y="0" width="12" height="12"/>
+      <rect x="0" y="14" width="12" height="12"/>
+      <rect x="14" y="28" width="12" height="12"/>
+      <rect x="28" y="28" width="12" height="12"/>
+      <rect x="42" y="28" width="12" height="12"/>
+      <rect x="56" y="42" width="12" height="12"/>
+      <rect x="0" y="56" width="12" height="12"/>
+      <rect x="14" y="56" width="12" height="12"/>
+      <rect x="28" y="56" width="12" height="12"/>
+      <rect x="42" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- k -->
+    <g fill="#333333" transform="translate(84, 0)">
+      <rect x="0" y="0" width="12" height="12"/>
+      <rect x="0" y="14" width="12" height="12"/>
+      <rect x="42" y="14" width="12" height="12"/>
+      <rect x="0" y="28" width="12" height="12"/>
+      <rect x="14" y="28" width="12" height="12"/>
+      <rect x="28" y="28" width="12" height="12"/>
+      <rect x="0" y="42" width="12" height="12"/>
+      <rect x="14" y="42" width="12" height="12"/>
+      <rect x="28" y="42" width="12" height="12"/>
+      <rect x="0" y="56" width="12" height="12"/>
+      <rect x="42" y="56" width="12" height="12"/>
+      <rect x="56" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- i -->
+    <g fill="#333333" transform="translate(160, 0)">
+      <rect x="14" y="0" width="12" height="12"/>
+      <rect x="14" y="28" width="12" height="12"/>
+      <rect x="14" y="42" width="12" height="12"/>
+      <rect x="14" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- l -->
+    <g fill="#333333" transform="translate(204, 0)">
+      <rect x="0" y="0" width="12" height="12"/>
+      <rect x="0" y="14" width="12" height="12"/>
+      <rect x="0" y="28" width="12" height="12"/>
+      <rect x="0" y="42" width="12" height="12"/>
+      <rect x="0" y="56" width="12" height="12"/>
+      <rect x="14" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- l -->
+    <g fill="#333333" transform="translate(240, 0)">
+      <rect x="0" y="0" width="12" height="12"/>
+      <rect x="0" y="14" width="12" height="12"/>
+      <rect x="0" y="28" width="12" height="12"/>
+      <rect x="0" y="42" width="12" height="12"/>
+      <rect x="0" y="56" width="12" height="12"/>
+      <rect x="14" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- c -->
+    <g fill="#EE0000" transform="translate(290, 0)">
+      <rect x="14" y="14" width="12" height="12"/>
+      <rect x="28" y="14" width="12" height="12"/>
+      <rect x="42" y="14" width="12" height="12"/>
+      <rect x="0" y="28" width="12" height="12"/>
+      <rect x="0" y="42" width="12" height="12"/>
+      <rect x="14" y="56" width="12" height="12"/>
+      <rect x="28" y="56" width="12" height="12"/>
+      <rect x="42" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- t -->
+    <g fill="#EE0000" transform="translate(356, 0)">
+      <rect x="14" y="0" width="12" height="12"/>
+      <rect x="0" y="14" width="12" height="12"/>
+      <rect x="14" y="14" width="12" height="12"/>
+      <rect x="28" y="14" width="12" height="12"/>
+      <rect x="42" y="14" width="12" height="12"/>
+      <rect x="14" y="28" width="12" height="12"/>
+      <rect x="14" y="42" width="12" height="12"/>
+      <rect x="28" y="56" width="12" height="12"/>
+      <rect x="42" y="56" width="12" height="12"/>
+    </g>
+
+    <!-- l -->
+    <g fill="#EE0000" transform="translate(420, 0)">
+      <rect x="0" y="0" width="12" height="12"/>
+      <rect x="0" y="14" width="12" height="12"/>
+      <rect x="0" y="28" width="12" height="12"/>
+      <rect x="0" y="42" width="12" height="12"/>
+      <rect x="0" y="56" width="12" height="12"/>
+      <rect x="14" y="56" width="12" height="12"/>
+    </g>
+  </g>
+</svg>
