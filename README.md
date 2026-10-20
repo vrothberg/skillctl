@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.svg" alt="skillctl logo" width="400">
+</p>
+
 # skillctl
 
 Manage AI agent skills as OCI artifacts with the same supply-chain guarantees as container images.
