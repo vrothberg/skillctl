@@ -70,6 +70,16 @@ func (m *Manifest) AddOrUpdate(skill Skill) {
 	m.Skills = append(m.Skills, skill)
 }
 
+func (m *Manifest) Remove(name string) bool {
+	for i, s := range m.Skills {
+		if s.Name == name {
+			m.Skills = append(m.Skills[:i], m.Skills[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manifest) Find(name string) *Skill {
 	for i := range m.Skills {
 		if m.Skills[i].Name == name {

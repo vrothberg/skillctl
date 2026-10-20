@@ -100,6 +100,34 @@ func TestFind(t *testing.T) {
 	}
 }
 
+func TestRemove(t *testing.T) {
+	m := New()
+	m.AddOrUpdate(Skill{Name: "a", Image: "img:1"})
+	m.AddOrUpdate(Skill{Name: "b", Image: "img:2"})
+
+	if !m.Remove("a") {
+		t.Error("expected Remove to return true for existing skill")
+	}
+	if len(m.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(m.Skills))
+	}
+	if m.Skills[0].Name != "b" {
+		t.Errorf("expected remaining skill %q, got %q", "b", m.Skills[0].Name)
+	}
+}
+
+func TestRemoveNonexistent(t *testing.T) {
+	m := New()
+	m.AddOrUpdate(Skill{Name: "a", Image: "img:1"})
+
+	if m.Remove("nonexistent") {
+		t.Error("expected Remove to return false for nonexistent skill")
+	}
+	if len(m.Skills) != 1 {
+		t.Fatalf("expected 1 skill unchanged, got %d", len(m.Skills))
+	}
+}
+
 func TestSkillExtractPath(t *testing.T) {
 	path := SkillExtractPath("translator")
 	expected := filepath.Join(DefaultSkillDir, "translator")
