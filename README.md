@@ -56,6 +56,7 @@ See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-e
 
 Signature verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
 Configure verification through your system's `/etc/containers/policy.json` or `~/.config/containers/policy.json`.
+See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the full specification.
 
 On systems without container tooling installed, skillctl creates a permissive default policy. To enforce signature verification, create a policy file at one of the standard paths.
 
