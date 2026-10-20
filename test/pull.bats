@@ -2,9 +2,11 @@
 
 load helpers
 
-@test "pull without init fails" {
-    run "$SKILLCTL" pull quay.io/fake/skill:latest
+@test "pull without init fails without extracting" {
+    run "$SKILLCTL" pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -ne 0 ]
+    # Must not leave orphaned files on disk
+    [ ! -d skills ]
 }
 
 @test "pull requires an argument" {

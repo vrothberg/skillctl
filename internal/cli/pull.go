@@ -22,6 +22,12 @@ func pullCommand() *cobra.Command {
 			imageRef := args[0]
 			ctx := context.Background()
 
+			manifestPath := filepath.Join(".", manifest.DefaultFile)
+			m, err := manifest.Load(manifestPath)
+			if err != nil {
+				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+			}
+
 			storePath, err := store.DefaultStorePath()
 			if err != nil {
 				return err
@@ -45,12 +51,6 @@ func pullCommand() *cobra.Command {
 
 			if err := s.Extract(ctx, imageRef, extractPath); err != nil {
 				return err
-			}
-
-			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
-			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
 			}
 
 			m.AddOrUpdate(manifest.Skill{
