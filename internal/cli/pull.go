@@ -84,7 +84,7 @@ func pullCommand() *cobra.Command {
 			})
 
 			if err := m.Save(manifestPath); err != nil {
-				os.RemoveAll(extractPath)
+				_ = os.RemoveAll(extractPath)
 				return fmt.Errorf("updating manifest: %w", err)
 			}
 
