@@ -99,6 +99,22 @@ load helpers
     [ "$count" -eq 1 ]
 }
 
+@test "pull removes stale files from prior version" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+
+    # Simulate a file that existed in v1 but not in v2
+    echo "stale" > skills/skillctl-example-skill/old-helper.txt
+    [ -f skills/skillctl-example-skill/old-helper.txt ]
+
+    # Pull a new version; the stale file must be gone
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    [[ "$output" =~ "Pulled" ]]
+    [ ! -f skills/skillctl-example-skill/old-helper.txt ]
+    [ -f skills/skillctl-example-skill/skill.md ]
+    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "2" ]]
+}
+
 @test "pull two versions with --name" {
     run_skillctl init
     run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0

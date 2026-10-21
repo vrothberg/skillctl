@@ -72,6 +72,10 @@ func pullCommand() *cobra.Command {
 
 			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
 
+			if err := os.RemoveAll(extractPath); err != nil {
+				return fmt.Errorf("removing old skill files: %w", err)
+			}
+
 			if err := s.Extract(ctx, imageRef, extractPath); err != nil {
 				return err
 			}

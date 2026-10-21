@@ -58,6 +58,24 @@ load helpers
     [[ "$(cat skills/skill-v2/counter.txt)" == "2" ]]
 }
 
+@test "update removes stale files from prior version" {
+    run_skillctl init
+    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+
+    # Simulate a file that existed in v1 but not in v2
+    echo "stale" > skills/skillctl-example-skill/old-helper.txt
+    [ -f skills/skillctl-example-skill/old-helper.txt ]
+
+    # Simulate Renovate bumping the tag
+    sed -i'' -e 's|skillctl-example-skill:v1.0.0|skillctl-example-skill:v1.0.1|' skillctl.yaml
+
+    run_skillctl update
+    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
+    [ ! -f skills/skillctl-example-skill/old-helper.txt ]
+    [ -f skills/skillctl-example-skill/skill.md ]
+    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "2" ]]
+}
+
 @test "update handles image tag change (Renovate workflow)" {
     run_skillctl init
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
