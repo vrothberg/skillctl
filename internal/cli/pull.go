@@ -49,52 +49,54 @@ func pullCommand() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Pulling %s ...\n", imageRef)
-			d, err := s.Pull(ctx, imageRef)
-			if err != nil {
-				return err
-			}
-
-			if name == "" {
-				name = skillName(imageRef)
-			}
-
-			if err := manifest.ValidateSkillName(name); err != nil {
-				return err
-			}
-
-			if !force {
-				if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
-					fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
-					return nil
+			return store.WithLock(func() error {
+				fmt.Printf("Pulling %s ...\n", imageRef)
+				d, err := s.Pull(ctx, imageRef)
+				if err != nil {
+					return err
 				}
-			}
 
-			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
+				if name == "" {
+					name = skillName(imageRef)
+				}
 
-			if err := os.RemoveAll(extractPath); err != nil {
-				return fmt.Errorf("removing old skill files: %w", err)
-			}
+				if err := manifest.ValidateSkillName(name); err != nil {
+					return err
+				}
 
-			if err := s.Extract(ctx, imageRef, extractPath); err != nil {
-				return err
-			}
+				if !force {
+					if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
+						fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
+						return nil
+					}
+				}
 
-			m.AddOrUpdate(manifest.Skill{
-				Name:        name,
-				Image:       imageRef,
-				Digest:      d.String(),
-				ExtractPath: manifest.SkillExtractPath(name),
+				extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
+
+				if err := os.RemoveAll(extractPath); err != nil {
+					return fmt.Errorf("removing old skill files: %w", err)
+				}
+
+				if err := s.Extract(ctx, imageRef, extractPath); err != nil {
+					return err
+				}
+
+				m.AddOrUpdate(manifest.Skill{
+					Name:        name,
+					Image:       imageRef,
+					Digest:      d.String(),
+					ExtractPath: manifest.SkillExtractPath(name),
+				})
+
+				if err := m.Save(manifestPath); err != nil {
+					_ = os.RemoveAll(extractPath)
+					return fmt.Errorf("updating manifest: %w", err)
+				}
+
+				fmt.Printf("Pulled %s (%s)\n", name, d.String()[:19])
+				fmt.Printf("Extracted to %s\n", extractPath)
+				return nil
 			})
-
-			if err := m.Save(manifestPath); err != nil {
-				_ = os.RemoveAll(extractPath)
-				return fmt.Errorf("updating manifest: %w", err)
-			}
-
-			fmt.Printf("Pulled %s (%s)\n", name, d.String()[:19])
-			fmt.Printf("Extracted to %s\n", extractPath)
-			return nil
 		},
 	}
 
