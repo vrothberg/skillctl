@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/nightlyone/lockfile"
 	"github.com/opencontainers/go-digest"
 	"go.podman.io/common/libimage"
 	"go.podman.io/common/pkg/libartifact"
@@ -36,10 +38,6 @@ func DefaultStorePath() (string, error) {
 	return filepath.Join(home, defaultStoreDir), nil
 }
 
-func New(storePath string) (*Store, error) {
-	return NewWithOptions(storePath, StoreOptions{})
-}
-
 func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	sc := &types.SystemContext{}
 
@@ -67,6 +65,7 @@ func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating artifact store: %w", err)
 	}
+
 	return &Store{artifact: as, sc: sc}, nil
 }
 
@@ -101,6 +100,31 @@ func ensurePolicyJSON(storePath string) (string, error) {
 		return "", fmt.Errorf("writing default policy.json: %w", err)
 	}
 	return policyPath, nil
+}
+
+func WithLock(fn func() error) error {
+	storePath, err := DefaultStorePath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(storePath, 0o700); err != nil {
+		return fmt.Errorf("creating store directory: %w", err)
+	}
+
+	lock, err := lockfile.New(filepath.Join(storePath, "skillctl.lock"))
+	if err != nil {
+		return fmt.Errorf("creating lock file: %w", err)
+	}
+
+	for err := lock.TryLock(); err != nil; err = lock.TryLock() {
+		if err != lockfile.ErrBusy {
+			return fmt.Errorf("acquiring lock: %w", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	return fn()
 }
 
 func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error) {

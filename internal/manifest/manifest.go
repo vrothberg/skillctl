@@ -45,6 +45,12 @@ func Load(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("parsing manifest: %w", err)
 	}
 
+	for _, s := range m.Skills {
+		if err := ValidateSkillName(s.Name); err != nil {
+			return nil, fmt.Errorf("invalid skill in manifest: %w", err)
+		}
+	}
+
 	return m, nil
 }
 

@@ -3,6 +3,7 @@ module github.com/vrothberg/skillctl
 go 1.27.2
 
 require (
+	github.com/nightlyone/lockfile v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/spf13/cobra v1.10.2
 	go.podman.io/common v0.68.1

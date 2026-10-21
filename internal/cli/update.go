@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -50,41 +51,46 @@ func updateCommand() *cobra.Command {
 				return err
 			}
 
-			var updated int
-			for _, skill := range m.Skills {
-				fmt.Printf("Checking %s ...\n", skill.Name)
-				d, err := s.Pull(ctx, skill.Image)
-				if err != nil {
-					return fmt.Errorf("pulling %s: %w", skill.Name, err)
+			return store.WithLock(func() error {
+				var updated int
+				for _, skill := range m.Skills {
+					fmt.Printf("Checking %s ...\n", skill.Name)
+					d, err := s.Pull(ctx, skill.Image)
+					if err != nil {
+						return fmt.Errorf("pulling %s: %w", skill.Name, err)
+					}
+
+					if !force && d.String() == skill.Digest {
+						fmt.Printf("  %s is up to date\n", skill.Name)
+						continue
+					}
+
+					extractPath := filepath.Join(".", manifest.SkillExtractPath(skill.Name))
+					if err := os.RemoveAll(extractPath); err != nil {
+						return fmt.Errorf("removing old skill files for %s: %w", skill.Name, err)
+					}
+					if err := s.Extract(ctx, skill.Image, extractPath); err != nil {
+						return fmt.Errorf("extracting %s: %w", skill.Name, err)
+					}
+
+					m.AddOrUpdate(manifest.Skill{
+						Name:        skill.Name,
+						Image:       skill.Image,
+						Digest:      d.String(),
+						ExtractPath: manifest.SkillExtractPath(skill.Name),
+					})
+
+					if err := m.Save(manifestPath); err != nil {
+						return fmt.Errorf("updating manifest: %w", err)
+					}
+
+					fmt.Printf("  Updated %s (%s)\n", skill.Name, d.String()[:19])
+					updated++
 				}
 
-				if !force && d.String() == skill.Digest {
-					fmt.Printf("  %s is up to date\n", skill.Name)
-					continue
-				}
-
-				extractPath := filepath.Join(".", manifest.SkillExtractPath(skill.Name))
-				if err := s.Extract(ctx, skill.Image, extractPath); err != nil {
-					return fmt.Errorf("extracting %s: %w", skill.Name, err)
-				}
-
-				m.AddOrUpdate(manifest.Skill{
-					Name:        skill.Name,
-					Image:       skill.Image,
-					Digest:      d.String(),
-					ExtractPath: manifest.SkillExtractPath(skill.Name),
-				})
-
-				if err := m.Save(manifestPath); err != nil {
-					return fmt.Errorf("updating manifest: %w", err)
-				}
-
-				fmt.Printf("  Updated %s (%s)\n", skill.Name, d.String()[:19])
-				updated++
-			}
-
-			fmt.Printf("Updated %d of %d skill(s)\n", updated, len(m.Skills))
-			return nil
+				fmt.Printf("Updated %d of %d skill(s)\n", updated, len(m.Skills))
+				return nil
+			})
 		},
 	}
 

@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestNew(t *testing.T) {
@@ -204,6 +206,41 @@ func TestLoadNonexistent(t *testing.T) {
 	_, err := Load("/nonexistent/path/skillctl.yaml")
 	if err == nil {
 		t.Error("expected error for nonexistent file")
+	}
+}
+
+func TestLoadRejectsInvalidSkillName(t *testing.T) {
+	tests := []struct {
+		name     string
+		skillName string
+	}{
+		{"path traversal", "../../etc/evil"},
+		{"path separator", "foo/bar"},
+		{"dot-dot", ".."},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "test.yaml")
+
+			m := New()
+			m.Skills = append(m.Skills, Skill{
+				Name:  tc.skillName,
+				Image: "quay.io/example/skill:v1",
+			})
+			data, err := yaml.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := Load(path); err == nil {
+				t.Errorf("expected Load to reject skill name %q", tc.skillName)
+			}
+		})
 	}
 }
 

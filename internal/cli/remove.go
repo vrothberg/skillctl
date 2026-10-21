@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"github.com/vrothberg/skillctl/internal/store"
 )
 
 func removeCommand() *cobra.Command {
@@ -24,30 +25,32 @@ func removeCommand() *cobra.Command {
 				return err
 			}
 
-			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
-			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
-			}
-
-			if !m.Remove(name) {
-				if force {
-					return nil
+			return store.WithLock(func() error {
+				manifestPath := filepath.Join(".", manifest.DefaultFile)
+				m, err := manifest.Load(manifestPath)
+				if err != nil {
+					return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
 				}
-				return fmt.Errorf("skill %q not found in manifest", name)
-			}
 
-			if err := m.Save(manifestPath); err != nil {
-				return fmt.Errorf("updating manifest: %w", err)
-			}
+				if !m.Remove(name) {
+					if force {
+						return nil
+					}
+					return fmt.Errorf("skill %q not found in manifest", name)
+				}
 
-			extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
-			if err := os.RemoveAll(extractPath); err != nil {
-				return fmt.Errorf("removing extracted files: %w", err)
-			}
+				if err := m.Save(manifestPath); err != nil {
+					return fmt.Errorf("updating manifest: %w", err)
+				}
 
-			fmt.Printf("Removed %s\n", name)
-			return nil
+				extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
+				if err := os.RemoveAll(extractPath); err != nil {
+					return fmt.Errorf("removing extracted files: %w", err)
+				}
+
+				fmt.Printf("Removed %s\n", name)
+				return nil
+			})
 		},
 	}
 
