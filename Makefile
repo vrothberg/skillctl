@@ -1,11 +1,12 @@
 GO ?= go
-GO_TEST = $(GO) test -mod=vendor
+GO_TEST = $(GO) test -mod=vendor -tags "$(BUILDTAGS)"
 
 VERSION := $(shell cat ./VERSION)
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 LDFLAGS = -X github.com/vrothberg/skillctl/internal/version.Version=$(VERSION) \
           -X github.com/vrothberg/skillctl/internal/version.Commit=$(COMMIT)
-GO_BUILD = $(GO) build -mod=vendor -ldflags "$(LDFLAGS)"
+BUILDTAGS ?= exclude_graphdriver_btrfs containers_image_openpgp
+GO_BUILD = $(GO) build -mod=vendor -tags "$(BUILDTAGS)" -ldflags "$(LDFLAGS)"
 
 BINARY := bin/skillctl
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
@@ -32,7 +33,7 @@ clean:
 
 .PHONY: lint
 lint:
-	golangci-lint run ./...
+	golangci-lint run --build-tags "$(BUILDTAGS)" ./...
 
 .PHONY: vendor
 vendor:
