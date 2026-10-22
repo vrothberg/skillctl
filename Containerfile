@@ -1,6 +1,6 @@
 FROM registry:3 AS registry
 FROM golangci/golangci-lint:v2.15.0 AS lint
-FROM registry.fedoraproject.org/fedora:44
+FROM registry.fedoraproject.org/fedora:46
 
 COPY --from=lint /usr/bin/golangci-lint /usr/bin/golangci-lint
 COPY --from=registry /bin/registry /usr/bin/registry
