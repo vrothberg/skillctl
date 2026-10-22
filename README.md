@@ -6,6 +6,24 @@ Manage AI agent skills as OCI artifacts with the same supply-chain guarantees as
 skillctl is a thin CLI built on top of podman's [libartifact](https://pkg.go.dev/go.podman.io/common/pkg/libartifact) package.
 It pulls skills from OCI registries, extracts them locally, and tracks pinned versions in a manifest file that tools like Renovate or Dependabot can monitor for version bumps.
 
+## Installation
+
+Requires Go >= 1.26.
+
+```console
+$ go install -tags "exclude_graphdriver_btrfs containers_image_openpgp" \
+    github.com/vrothberg/skillctl/cmd/skillctl@latest
+```
+
+Or build from source:
+
+```console
+$ git clone https://github.com/vrothberg/skillctl.git
+$ cd skillctl
+$ make build
+$ ./bin/skillctl version
+```
+
 ## Quick start
 
 ```console

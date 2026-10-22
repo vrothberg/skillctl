@@ -1,6 +1,6 @@
 module github.com/vrothberg/skillctl
 
-go 1.27.2
+go 1.26.0
 
 require (
 	github.com/nightlyone/lockfile v1.0.0
