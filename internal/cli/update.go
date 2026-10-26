@@ -13,10 +13,8 @@ import (
 
 func updateCommand() *cobra.Command {
 	var (
-		force           bool
-		signaturePolicy string
-		registriesDir   string
-		tlsVerify       bool
+		force     bool
+		tlsVerify bool
 	)
 
 	cmd := &cobra.Command{
@@ -37,21 +35,30 @@ func updateCommand() *cobra.Command {
 				return nil
 			}
 
-			storePath, err := store.DefaultStorePath()
+			// Trust comes from the manifest and only the manifest. Refuse
+			// to touch anything before every skill declares how it is
+			// verified, so a partial manifest never partially updates.
+			for _, skill := range m.Skills {
+				if !skill.Trust.Declared() {
+					return fmt.Errorf("skill %q has no trust declaration in the manifest (re-pull it with --trust or add a trust entry to %s)", skill.Name, manifest.DefaultFile)
+				}
+			}
+
+			storePath, err := store.Path(storeFlag)
 			if err != nil {
 				return err
 			}
 
 			s, err := store.NewWithOptions(storePath, store.StoreOptions{
-				SignaturePolicyPath:    signaturePolicy,
-				RegistriesDirPath:     registriesDir,
+				Skills:                m.Skills,
+				ManifestDir:           filepath.Dir(manifestPath),
 				InsecureSkipTLSVerify: !tlsVerify,
 			})
 			if err != nil {
 				return err
 			}
 
-			return store.WithLock(func() error {
+			return store.WithLock(storePath, func() error {
 				var updated int
 				for _, skill := range m.Skills {
 					fmt.Printf("Checking %s ...\n", skill.Name)
@@ -78,6 +85,7 @@ func updateCommand() *cobra.Command {
 						Image:       skill.Image,
 						Digest:      d.String(),
 						ExtractPath: manifest.SkillExtractPath(skill.Name),
+						Trust:       skill.Trust,
 					})
 
 					if err := m.Save(manifestPath); err != nil {
@@ -95,8 +103,6 @@ func updateCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "force extraction even if digests are unchanged")
-	cmd.Flags().StringVar(&signaturePolicy, "signature-policy", "", "path to a signature policy.json file")
-	cmd.Flags().StringVar(&registriesDir, "registries-dir", "", "path to a registries.d directory")
 	cmd.Flags().BoolVar(&tlsVerify, "tls-verify", true, "require HTTPS and verify TLS certificates")
 
 	return cmd

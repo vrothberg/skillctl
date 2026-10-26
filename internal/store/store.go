@@ -9,6 +9,7 @@ import (
 
 	"github.com/nightlyone/lockfile"
 	"github.com/opencontainers/go-digest"
+	"github.com/vrothberg/skillctl/internal/manifest"
 	"go.podman.io/common/libimage"
 	"go.podman.io/common/pkg/libartifact"
 	libartTypes "go.podman.io/common/pkg/libartifact/types"
@@ -17,18 +18,25 @@ import (
 
 const defaultStoreDir = ".local/share/skillctl/store"
 
-const defaultPolicyJSON = `{"default":[{"type":"insecureAcceptAnything"}]}`
-
 type Store struct {
 	artifact *libartifact.ArtifactStore
 	sc       *types.SystemContext
 }
 
 type StoreOptions struct {
-	SignaturePolicyPath    string
-	RegistriesDirPath     string
+	// Skills are the skills in scope for the operation. Their trust
+	// declarations drive the synthesized signature policy and registries.d
+	// configuration.
+	Skills []manifest.Skill
+	// ManifestDir is the directory of the manifest; relative key paths in
+	// trust declarations resolve against it.
+	ManifestDir string
+	// InsecureSkipTLSVerify skips TLS verification of registries.
 	InsecureSkipTLSVerify bool
 }
+
+// StoreEnvVar is the environment variable overriding the default store path.
+const StoreEnvVar = "SKILLCTL_STORE"
 
 func DefaultStorePath() (string, error) {
 	home, err := os.UserHomeDir()
@@ -38,24 +46,31 @@ func DefaultStorePath() (string, error) {
 	return filepath.Join(home, defaultStoreDir), nil
 }
 
+// Path returns the store path: the --store flag value if set, then the
+// SKILLCTL_STORE environment variable, then the default location.
+func Path(flagValue string) (string, error) {
+	if flagValue != "" {
+		return filepath.Clean(flagValue), nil
+	}
+	if env := os.Getenv(StoreEnvVar); env != "" {
+		return env, nil
+	}
+	return DefaultStorePath()
+}
+
 func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	sc := &types.SystemContext{}
 
-	if opts.SignaturePolicyPath != "" {
-		sc.SignaturePolicyPath = opts.SignaturePolicyPath
-	} else {
-		policyPath, err := ensurePolicyJSON(storePath)
-		if err != nil {
-			return nil, err
-		}
-		if policyPath != "" {
-			sc.SignaturePolicyPath = policyPath
-		}
+	// Signature verification is configured exclusively by the manifest's
+	// trust declarations. The generated configuration replaces any ambient
+	// system policy and registries.d, so skillctl behaves identically on
+	// every machine.
+	policyPath, registriesDir, err := writeTrustConfig(storePath, opts.Skills, opts.ManifestDir)
+	if err != nil {
+		return nil, err
 	}
-
-	if opts.RegistriesDirPath != "" {
-		sc.RegistriesDirPath = opts.RegistriesDirPath
-	}
+	sc.SignaturePolicyPath = policyPath
+	sc.RegistriesDirPath = registriesDir
 
 	if opts.InsecureSkipTLSVerify {
 		sc.DockerInsecureSkipTLSVerify = types.OptionalBoolTrue
@@ -69,44 +84,7 @@ func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	return &Store{artifact: as, sc: sc}, nil
 }
 
-// ensurePolicyJSON returns a path to a policy.json file. If one already exists
-// at the standard system locations, it returns "" so the library uses the
-// system default. Otherwise it creates a permissive default under storePath.
-func ensurePolicyJSON(storePath string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("determining home directory: %w", err)
-	}
-
-	for _, p := range []string{
-		filepath.Join(home, ".config/containers/policy.json"),
-		"/etc/containers/policy.json",
-		"/usr/share/containers/policy.json",
-	} {
-		if _, err := os.Stat(p); err == nil {
-			return "", nil
-		}
-	}
-
-	policyPath := filepath.Join(storePath, "policy.json")
-	if _, err := os.Stat(policyPath); err == nil {
-		return policyPath, nil
-	}
-
-	if err := os.MkdirAll(storePath, 0o700); err != nil {
-		return "", fmt.Errorf("creating store directory: %w", err)
-	}
-	if err := os.WriteFile(policyPath, []byte(defaultPolicyJSON), 0o644); err != nil {
-		return "", fmt.Errorf("writing default policy.json: %w", err)
-	}
-	return policyPath, nil
-}
-
-func WithLock(fn func() error) error {
-	storePath, err := DefaultStorePath()
-	if err != nil {
-		return err
-	}
+func WithLock(storePath string, fn func() error) error {
 	if err := os.MkdirAll(storePath, 0o700); err != nil {
 		return fmt.Errorf("creating store directory: %w", err)
 	}

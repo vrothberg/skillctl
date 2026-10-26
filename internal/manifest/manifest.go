@@ -25,6 +25,94 @@ type Skill struct {
 	Image       string `yaml:"image"`
 	Digest      string `yaml:"digest"`
 	ExtractPath string `yaml:"extractPath"`
+	Trust       Trust  `yaml:"trust,omitempty"`
+}
+
+// Trust declares how a skill's signatures are verified when it is pulled.
+// It is either the scalar "none", an explicit opt-out of verification, or a
+// map pinning verification material. A skill without a trust declaration is
+// rejected: trust is declared when the skill is added via
+// "skillctl pull --trust" and then travels with the manifest.
+type Trust struct {
+	// None opts out of signature verification for the skill.
+	None bool
+	// Key is the path to a public key, relative to the manifest.
+	Key string
+}
+
+// Declared reports whether a trust declaration is present.
+func (t Trust) Declared() bool {
+	return t.None || t.Key != ""
+}
+
+// String returns a human-readable form of the trust declaration.
+func (t Trust) String() string {
+	switch {
+	case t.None:
+		return "none"
+	case t.Key != "":
+		return "key:" + t.Key
+	}
+	return "undeclared"
+}
+
+func (t Trust) MarshalYAML() (any, error) {
+	switch {
+	case t.None && t.Key != "":
+		return nil, fmt.Errorf("invalid trust: none and key are mutually exclusive")
+	case t.None:
+		return "none", nil
+	case t.Key != "":
+		return map[string]string{"key": t.Key}, nil
+	}
+	return nil, nil
+}
+
+func (t *Trust) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		if value.Tag == "!!null" {
+			return nil
+		}
+		if value.Value == "none" {
+			t.None = true
+			return nil
+		}
+		return fmt.Errorf("invalid trust %q: must be \"none\" or a map (e.g. {key: keys/foo.pub})", value.Value)
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(value.Content); i += 2 {
+			key, val := value.Content[i], value.Content[i+1]
+			switch key.Value {
+			case "key":
+				if val.Tag == "!!null" || val.Value == "" {
+					return fmt.Errorf("trust: key must not be empty")
+				}
+				t.Key = val.Value
+			default:
+				return fmt.Errorf("unknown trust field %q", key.Value)
+			}
+		}
+		if t.Key == "" {
+			return fmt.Errorf("trust: key is required")
+		}
+		return nil
+	}
+	return fmt.Errorf("trust must be \"none\" or a map (e.g. {key: keys/foo.pub})")
+}
+
+// ParseTrust parses a --trust flag value of the form "none" or "key=KEY.pub".
+func ParseTrust(s string) (Trust, error) {
+	switch {
+	case s == "none":
+		return Trust{None: true}, nil
+	case strings.HasPrefix(s, "key="):
+		key := strings.TrimPrefix(s, "key=")
+		if key == "" {
+			return Trust{}, fmt.Errorf("--trust key= requires a path to a public key")
+		}
+		return Trust{Key: key}, nil
+	}
+	return Trust{}, fmt.Errorf("invalid trust %q: must be \"none\" or \"key=KEY.pub\"", s)
 }
 
 func New() *Manifest {

@@ -30,18 +30,20 @@ $ ./bin/skillctl version
 $ skillctl init
 Initialized skillctl project: skillctl.yaml and .agents/skills/
 
-$ skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+$ skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
 Pulling quay.io/vrothberg/skillctl-example-skill:v1.0.0 ...
 Pulled skillctl-example-skill (sha256:c696d5bb34aa)
 Extracted to .agents/skills/skillctl-example-skill
 
 $ skillctl list
-NAME                    IMAGE                                            DIGEST               PATH
-skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:c696d5bb34aa  .agents/skills/skillctl-example-skill
+NAME                    IMAGE                                            DIGEST               PATH                                  TRUST
+skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:c696d5bb34aa  .agents/skills/skillctl-example-skill  none
 
 $ skillctl remove skillctl-example-skill
 Removed skillctl-example-skill
 ```
+
+Every skill must declare how it is trusted: `--trust key=KEY.pub` pins a public key and requires a valid sigstore signature, `--trust none` explicitly opts out of verification. The declaration is recorded in the manifest and reused for later pulls and updates.
 
 Skills are extracted to `.agents/skills/`, the cross-client discovery convention of the [Agent Skills](https://agentskills.io) ecosystem.
 Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up skillctl-managed skills automatically.
@@ -51,7 +53,7 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 | Command | Description |
 |---------|-------------|
 | `skillctl init` | Create `skillctl.yaml` and `.agents/skills/` in the current directory |
-| `skillctl pull IMAGE` | Pull a skill from an OCI registry, extract it, and update the manifest |
+| `skillctl pull --trust ... IMAGE` | Pull a skill from an OCI registry, extract it, and update the manifest |
 | `skillctl update` | Pull and extract all skills listed in the manifest |
 | `skillctl remove NAME` | Remove a skill from the manifest and delete its extracted files |
 | `skillctl list` | List skills tracked in the manifest |
@@ -59,18 +61,28 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 
 ## Manifest format
 
-`skillctl.yaml` tracks pinned skills with their OCI image references and digests:
+`skillctl.yaml` tracks pinned skills with their OCI image references, digests, and trust declarations:
 
 ```yaml
 apiVersion: v1
 skills:
+    - name: translator
+      image: quay.io/redhat/skills/translator:1.0
+      digest: sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
+      extractPath: .agents/skills/translator
+      trust:
+          key: keys/translator.pub
+
     - name: skillctl-example-skill
       image: quay.io/vrothberg/skillctl-example-skill:v1.0.0
-      digest: sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
+      digest: sha256:a02ed76caf2de9d1ea33328d9ff0810a87ed37f6721baf9276d4d4023e346447
       extractPath: .agents/skills/skillctl-example-skill
+      trust: none
 ```
 
 This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
+
+The `trust` entry declares how a skill is verified, and it travels with the version bump: when Renovate updates the image reference and digest, the new version is verified against the same trust as the version it replaces.
 
 See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a complete end-to-end example with Renovate integration and CI-driven skill updates.
 
@@ -150,76 +162,49 @@ The resulting flow: Renovate opens a PR bumping the tag in `skillctl.yaml`, the 
 
 See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a live setup of this flow.
 
-## Signature verification
+## Trust and signature verification
 
-Signature verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
-See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the full specification.
+skillctl is fail-closed about trust: every skill must declare how it is verified, and a skill without a declaration is refused.
 
-On systems without container tooling installed, skillctl creates a permissive default policy.
-To enforce signature verification, configure a `policy.json` and a `registries.d` directory.
+| Declaration | Meaning |
+|-------------|---------|
+| `trust: {key: keys/foo.pub}` | Require a valid sigstore signature by that public key |
+| `trust: none` | Explicitly opt out of verification |
+| no `trust` entry | `pull` and `update` refuse the skill |
 
-### System-wide configuration
+Trust is declared when a skill is added and then lives in the manifest:
 
-The standard paths are `/etc/containers/policy.json` (or `~/.config/containers/policy.json`) and `/etc/containers/registries.d/`.
-When these are configured, skillctl and podman both use them automatically, no flags needed.
+```console
+$ skillctl pull --trust key=keys/translator.pub quay.io/redhat/skills/translator:1.0
+```
 
-For per-invocation overrides, pass `--signature-policy` and `--registries-dir` to `pull` or `update`.
+Pulling a new version of a tracked skill without `--trust` reuses the declaration recorded in the manifest, and `skillctl update` verifies every skill against its pinned key. Verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
 
-### Example: verifying Red Hat image signatures
+skillctl derives the signature policy and `registries.d` configuration from the manifest on every run and keeps them in its internal store (`~/.local/share/skillctl/store/`). Ambient system configuration, such as `/etc/containers/policy.json`, is not consulted: trust lives in the repository, so every machine, laptop or CI runner, verifies exactly the same way. See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the policy format skillctl generates.
 
-Red Hat signs all images on `registry.access.redhat.com` with sigstore.
-You can verify these signatures with skillctl the same way you would with `cosign verify`.
+Verification keys are public keys: commit them next to `skillctl.yaml` so CI verifies the same way as local pulls.
 
-Download the Red Hat signing key:
+Trust is scoped per repository: skills sharing an OCI repository must declare the same trust.
+
+## Store
+
+skillctl keeps its OCI artifact store and the generated signature policy and `registries.d` configuration in `~/.local/share/skillctl/store/`. Override the location with the `--store` flag or the `SKILLCTL_STORE` environment variable, which is what the test suite uses to inspect the generated configuration:
+
+```console
+$ skillctl --store /tmp/skillctl-store pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+$ cat /tmp/skillctl-store/policy.json
+```
+
+### Example: verifying Red Hat skills
+
+Red Hat signs all images on `registry.access.redhat.com` with sigstore, so their skills can be verified the same way you would verify them with `cosign verify`:
 
 ```console
 $ curl -sLO https://security.access.redhat.com/data/63405576.txt
-```
-
-On RHEL and Fedora, the signing key is distributed with the operating system, so this step can be skipped.
-
-Create a policy requiring sigstore verification for `registry.access.redhat.com`:
-
-```console
-$ cat > policy.json <<EOF
-{
-    "default": [{"type": "insecureAcceptAnything"}],
-    "transports": {
-        "docker": {
-            "registry.access.redhat.com": [{
-                "type": "sigstoreSigned",
-                "keyPath": "63405576.txt"
-            }]
-        }
-    }
-}
-EOF
-```
-
-Enable sigstore attachment lookup for the registry.
-This can go into `/etc/containers/registries.d/` for system-wide use or into a custom directory passed via `--registries-dir`:
-
-```console
-$ mkdir -p registries.d
-$ cat > registries.d/redhat.yaml <<EOF
-docker:
-    registry.access.redhat.com:
-        use-sigstore-attachments: true
-EOF
-```
-
-Pull with signature verification:
-
-```console
-$ skillctl pull \
-    --signature-policy policy.json \
-    --registries-dir registries.d \
-    registry.access.redhat.com/hi/static:latest
+$ skillctl pull --trust key=63405576.txt registry.access.redhat.com/hi/static:latest
 Pulled static (sha256:f7a764cae676)
 Extracted to .agents/skills/static
 ```
-
-When `policy.json` and `registries.d/` are installed at the standard system paths, the flags can be omitted entirely.
 
 ## Building
 

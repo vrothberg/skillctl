@@ -3,6 +3,7 @@ package manifest
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -254,5 +255,143 @@ func TestLoadInvalidYAML(t *testing.T) {
 	_, err := Load(path)
 	if err == nil {
 		t.Error("expected error for invalid YAML")
+	}
+}
+
+func TestTrustRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		trust Trust
+		yaml  string
+	}{
+		{"none", Trust{None: true}, "none\n"},
+		{"key", Trust{Key: "keys/foo.pub"}, "key: keys/foo.pub\n"},
+		{"undeclared", Trust{}, ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "test.yaml")
+
+			m := New()
+			m.AddOrUpdate(Skill{
+				Name:  "a",
+				Image: "quay.io/example/skill:v1",
+				Trust: tc.trust,
+			})
+			if err := m.Save(path); err != nil {
+				t.Fatalf("Save: %v", err)
+			}
+
+			if tc.yaml != "" {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(string(data), "trust:") {
+					t.Errorf("expected trust in manifest:\n%s", data)
+				}
+			} else {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(string(data), "trust") {
+					t.Errorf("expected no trust in manifest:\n%s", data)
+				}
+			}
+
+			loaded, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			got := loaded.Skills[0].Trust
+			if got != tc.trust {
+				t.Errorf("expected trust %+v, got %+v", tc.trust, got)
+			}
+			if got.Declared() != tc.trust.Declared() {
+				t.Errorf("Declared mismatch for %+v", got)
+			}
+		})
+	}
+}
+
+func TestLoadInvalidTrust(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+	}{
+		{"unknown scalar", "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n      trust: maybe\n"},
+		{"unknown field", "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n      trust:\n          fingerprint: abc\n"},
+		{"empty key", "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n      trust:\n          key: \"\"\n"},
+		{"key missing", "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n      trust: {}\n"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "test.yaml")
+			if err := os.WriteFile(path, []byte(tc.yaml), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := Load(path); err == nil {
+				t.Errorf("expected Load to reject trust:\n%s", tc.yaml)
+			}
+		})
+	}
+}
+
+func TestLoadLegacyManifestWithoutTrust(t *testing.T) {
+	// Manifests written before trust existed load fine; the trust
+	// declaration is enforced when the skills are pulled or updated.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.yaml")
+	legacy := "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n      digest: sha256:abc\n"
+	if err := os.WriteFile(path, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if m.Skills[0].Trust.Declared() {
+		t.Error("expected undeclared trust for legacy manifest")
+	}
+}
+
+func TestParseTrust(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Trust
+	}{
+		{"none", Trust{None: true}},
+		{"key=keys/foo.pub", Trust{Key: "keys/foo.pub"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := ParseTrust(tc.input)
+			if err != nil {
+				t.Fatalf("ParseTrust(%q): %v", tc.input, err)
+			}
+			if got != tc.want {
+				t.Errorf("expected %+v, got %+v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestParseTrustInvalid(t *testing.T) {
+	tests := []string{"", "foo", "key=", "keypath", "fulcio=x"}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			if _, err := ParseTrust(input); err == nil {
+				t.Errorf("expected ParseTrust(%q) to fail", input)
+			}
+		})
 	}
 }

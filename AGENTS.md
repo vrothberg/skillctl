@@ -19,8 +19,8 @@ package.
 action.yml                    Composite GitHub Action wrapping skillctl for CI
 cmd/skillctl/main.go          Entry point
 internal/cli/                  Cobra commands (init, pull, list, update)
-internal/manifest/             Manifest read/write/update (skillctl.yaml)
-internal/store/                Wraps libartifact.ArtifactStore (pull, extract)
+internal/manifest/             Manifest read/write/update (skillctl.yaml), trust declarations
+internal/store/                Wraps libartifact.ArtifactStore (pull, extract, trust config synthesis)
 test/                          BATS integration tests
 hack/                          Helper scripts and example skill
   example-skill/               Example skill pushed to quay.io for testing
@@ -81,13 +81,20 @@ corresponding make target. See `.github/workflows/ci.yml`.
 
 ## Key design decisions
 
-### Signature verification
+### Trust and signature verification
 
-Signature verification happens transparently at pull time via the
-`containers/image` library and the system's `policy.json`. On systems without
-container tooling (e.g., macOS without podman), skillctl creates a permissive
-default policy at `~/.local/share/skillctl/store/policy.json`. See
-`internal/store/store.go`.
+Trust lives in the manifest, not on the machine: every skill declares how it
+is verified (`trust: {key: ...}` for a pinned public key, `trust: none` for
+an explicit opt-out), and skills without a declaration are refused by both
+`pull` and `update`. At pull time skillctl synthesizes the `containers/image`
+signature policy and the `registries.d` configuration from the manifest's
+trust declarations and keeps them in `~/.local/share/skillctl/store/`.
+Ambient system configuration (`/etc/containers/policy.json` and friends) is
+deliberately not consulted, so verification behaves identically on every
+machine. The store location can be overridden with the `--store` flag or the
+`SKILLCTL_STORE` environment variable; the test suite does so to inspect the
+generated configuration. See `internal/manifest/manifest.go` (the Trust type)
+and `internal/store/trust.go` (the config synthesis).
 
 ### Local artifact store
 
@@ -128,7 +135,8 @@ versions, and CI runs `skillctl update` to pull and extract updated skills.
 `quay.io/vrothberg/skillctl-example-skill`. It has two files: `skill.md`
 (prompt) and `counter.txt` (an integer). Two versions exist: v1.0.0
 (counter=1) and v1.0.1 (counter=2). The integration tests pull these real
-artifacts from quay.io.
+artifacts from quay.io. The artifacts are unsigned, so tests declare
+`--trust none` for them.
 
 To push a new version:
 
