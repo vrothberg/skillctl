@@ -6,7 +6,7 @@ load helpers
     run_skillctl init
     [ "$status" -eq 0 ]
     [ -f skillctl.yaml ]
-    [ -d skills ]
+    [ -d .agents/skills ]
     [[ "$output" =~ "Initialized skillctl project" ]]
 }
 
@@ -34,8 +34,8 @@ load helpers
 }
 
 @test "init is idempotent for skills directory" {
-    mkdir -p skills
+    mkdir -p .agents/skills
     run_skillctl init
     [ "$status" -eq 0 ]
-    [ -d skills ]
+    [ -d .agents/skills ]
 }

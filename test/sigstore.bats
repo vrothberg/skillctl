@@ -43,7 +43,7 @@ load helpers
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
-    [ -f skills/skill/skill.md ]
+    [ -f .agents/skills/skill/skill.md ]
 }
 
 @test "pull artifact signed with wrong key fails" {
@@ -88,7 +88,7 @@ load helpers
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
-    [ -f skills/skill/skill.md ]
+    [ -f .agents/skills/skill/skill.md ]
 }
 
 @test "update respects signature policy" {

@@ -11,7 +11,7 @@ import (
 
 const (
 	DefaultFile     = "skillctl.yaml"
-	DefaultSkillDir = "skills"
+	DefaultSkillDir = ".agents/skills"
 	APIVersion      = "v1"
 )
 

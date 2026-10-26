@@ -27,7 +27,7 @@ func TestSaveAndLoad(t *testing.T) {
 		Name:        "translator",
 		Image:       "quay.io/redhat/skills/translator:1.0",
 		Digest:      "sha256:abc123",
-		ExtractPath: "skills/translator",
+		ExtractPath: ".agents/skills/translator",
 	})
 
 	if err := m.Save(path); err != nil {

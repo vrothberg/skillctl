@@ -33,7 +33,7 @@ function setup() {
         "$REDHAT_IMAGE"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled static" ]]
-    [ -d skills/static ]
+    [ -d .agents/skills/static ]
 }
 
 @test "pull Red Hat image with wrong key fails" {
