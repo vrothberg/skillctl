@@ -16,6 +16,7 @@ package.
 ## Project layout
 
 ```
+action.yml                    Composite GitHub Action wrapping skillctl for CI
 cmd/skillctl/main.go          Entry point
 internal/cli/                  Cobra commands (init, pull, list, update)
 internal/manifest/             Manifest read/write/update (skillctl.yaml)

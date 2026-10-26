@@ -74,6 +74,82 @@ This file serves as a lockfile. Renovate and Dependabot can detect OCI image ref
 
 See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a complete end-to-end example with Renovate integration and CI-driven skill updates.
 
+## GitHub Action
+
+This repository doubles as a GitHub Action, so CI can update skills without installing anything:
+
+```yaml
+permissions:
+  contents: write
+
+steps:
+  - uses: actions/checkout@v7
+
+  - uses: vrothberg/skillctl@main
+```
+
+The action runs `skillctl update --force` and commits changed skill files and the manifest.
+Configure it via inputs:
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `args` | `update --force` | Arguments passed to skillctl |
+| `commit-and-push` | `true` | Commit and push updated skill files and the manifest |
+| `commit-message` | `Update extracted skill files` | Commit message used when skill files changed |
+
+Until releases are cut, reference the action by `@main`; release tags will serve as action refs as well.
+
+### Use with Renovate
+
+Renovate can bump skill versions in `skillctl.yaml` the same way it bumps container image tags, and the action turns those bumps into fully updated PRs.
+
+Point Renovate's regex manager at the manifest, in `renovate.json`:
+
+```json
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["skillctl\\.yaml$"],
+      "matchStrings": [
+        "image:\\s*(?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
+```
+
+Then run the action only on Renovate's branches, so the updated skill files are committed to the PR:
+
+```yaml
+name: update-skills
+
+on:
+  push:
+    branches:
+      - renovate/**
+    paths:
+      - skillctl.yaml
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: vrothberg/skillctl@main
+```
+
+The resulting flow: Renovate opens a PR bumping the tag in `skillctl.yaml`, the push triggers the action, which pulls the new version and commits the extracted skill files and the pinned digest to the PR branch. The merged PR therefore contains both the lockfile and the content changes, always in sync.
+
+See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a live setup of this flow.
+
 ## Signature verification
 
 Signature verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
