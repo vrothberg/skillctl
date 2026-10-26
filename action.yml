@@ -27,6 +27,10 @@ runs:
     - uses: actions/setup-go@v7
       with:
         go-version: "stable"
+        # The cache keys on the calling repository's dependency file
+        # (e.g. go.mod), which is unrelated to skillctl's module graph,
+        # and produces a warning annotation in repositories without one.
+        cache: false
 
     - name: Install skillctl
       shell: bash
