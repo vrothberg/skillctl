@@ -1,3 +1,4 @@
 bin/
 skillctl.yaml
 skills/
+.claude/settings.local.json
