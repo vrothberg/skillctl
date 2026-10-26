@@ -16,8 +16,16 @@ SIGSTORE_PASS="${TESTDATA_DIR}/sigstore.pass"
 REPO_ROOT="$(cd "$(dirname "$SKILLCTL")/.." && pwd)"
 EXAMPLE_SKILL_DIR="${REPO_ROOT}/hack/example-skill"
 
+# Use an isolated store per test so the suite never touches the developer's
+# real store, and so tests can inspect the signature policy and registries.d
+# configuration skillctl generates in it.
+function setup_store() {
+    export SKILLCTL_STORE="${TEST_WORKDIR}/store"
+}
+
 function setup() {
     TEST_WORKDIR=$(mktemp -d)
+    setup_store
     pushd "$TEST_WORKDIR" > /dev/null
 }
 

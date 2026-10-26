@@ -91,8 +91,10 @@ signature policy and the `registries.d` configuration from the manifest's
 trust declarations and keeps them in `~/.local/share/skillctl/store/`.
 Ambient system configuration (`/etc/containers/policy.json` and friends) is
 deliberately not consulted, so verification behaves identically on every
-machine. See `internal/manifest/manifest.go` (the Trust type) and
-`internal/store/trust.go` (the config synthesis).
+machine. The store location can be overridden with the `--store` flag or the
+`SKILLCTL_STORE` environment variable; the test suite does so to inspect the
+generated configuration. See `internal/manifest/manifest.go` (the Trust type)
+and `internal/store/trust.go` (the config synthesis).
 
 ### Local artifact store
 

@@ -186,6 +186,15 @@ Verification keys are public keys: commit them next to `skillctl.yaml` so CI ver
 
 Trust is scoped per repository: skills sharing an OCI repository must declare the same trust.
 
+## Store
+
+skillctl keeps its OCI artifact store and the generated signature policy and `registries.d` configuration in `~/.local/share/skillctl/store/`. Override the location with the `--store` flag or the `SKILLCTL_STORE` environment variable, which is what the test suite uses to inspect the generated configuration:
+
+```console
+$ skillctl --store /tmp/skillctl-store pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+$ cat /tmp/skillctl-store/policy.json
+```
+
 ### Example: verifying Red Hat skills
 
 Red Hat signs all images on `registry.access.redhat.com` with sigstore, so their skills can be verified the same way you would verify them with `cosign verify`:

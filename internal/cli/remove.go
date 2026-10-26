@@ -25,7 +25,12 @@ func removeCommand() *cobra.Command {
 				return err
 			}
 
-			return store.WithLock(func() error {
+			storePath, err := store.Path(storeFlag)
+			if err != nil {
+				return err
+			}
+
+			return store.WithLock(storePath, func() error {
 				manifestPath := filepath.Join(".", manifest.DefaultFile)
 				m, err := manifest.Load(manifestPath)
 				if err != nil {

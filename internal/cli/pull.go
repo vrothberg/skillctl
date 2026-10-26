@@ -61,7 +61,7 @@ Declare how to verify it:
   --trust none           pull without signature verification`, imageRef)
 			}
 
-			storePath, err := store.DefaultStorePath()
+			storePath, err := store.Path(storeFlag)
 			if err != nil {
 				return err
 			}
@@ -75,7 +75,7 @@ Declare how to verify it:
 				return err
 			}
 
-			return store.WithLock(func() error {
+			return store.WithLock(storePath, func() error {
 				fmt.Printf("Pulling %s ...\n", imageRef)
 				d, err := s.Pull(ctx, imageRef)
 				if err != nil {

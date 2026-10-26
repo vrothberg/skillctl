@@ -35,12 +35,27 @@ type StoreOptions struct {
 	InsecureSkipTLSVerify bool
 }
 
+// StoreEnvVar is the environment variable overriding the default store path.
+const StoreEnvVar = "SKILLCTL_STORE"
+
 func DefaultStorePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("determining home directory: %w", err)
 	}
 	return filepath.Join(home, defaultStoreDir), nil
+}
+
+// Path returns the store path: the --store flag value if set, then the
+// SKILLCTL_STORE environment variable, then the default location.
+func Path(flagValue string) (string, error) {
+	if flagValue != "" {
+		return filepath.Clean(flagValue), nil
+	}
+	if env := os.Getenv(StoreEnvVar); env != "" {
+		return env, nil
+	}
+	return DefaultStorePath()
 }
 
 func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
@@ -69,11 +84,7 @@ func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	return &Store{artifact: as, sc: sc}, nil
 }
 
-func WithLock(fn func() error) error {
-	storePath, err := DefaultStorePath()
-	if err != nil {
-		return err
-	}
+func WithLock(storePath string, fn func() error) error {
 	if err := os.MkdirAll(storePath, 0o700); err != nil {
 		return fmt.Errorf("creating store directory: %w", err)
 	}

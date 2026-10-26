@@ -141,6 +141,38 @@ func TestWriteTrustConfigErrors(t *testing.T) {
 	}
 }
 
+func TestPath(t *testing.T) {
+	t.Setenv(StoreEnvVar, "/from-env")
+
+	// The flag wins over the environment variable.
+	got, err := Path("/from-flag")
+	if err != nil {
+		t.Fatalf("Path: %v", err)
+	}
+	if got != "/from-flag" {
+		t.Errorf("expected flag path to win, got %q", got)
+	}
+
+	// The environment variable wins over the default.
+	got, err = Path("")
+	if err != nil {
+		t.Fatalf("Path: %v", err)
+	}
+	if got != "/from-env" {
+		t.Errorf("expected env path, got %q", got)
+	}
+
+	// Without flag and environment variable, the default is used.
+	t.Setenv(StoreEnvVar, "")
+	got, err = Path("")
+	if err != nil {
+		t.Fatalf("Path: %v", err)
+	}
+	if !strings.HasSuffix(got, filepath.Join(".local", "share", "skillctl", "store")) {
+		t.Errorf("expected default store path, got %q", got)
+	}
+}
+
 func TestWriteTrustConfigSameKeySameRepo(t *testing.T) {
 	dir := t.TempDir()
 	key := writeKeyFile(t, dir, "foo.pub")

@@ -10,6 +10,7 @@ REDHAT_IMAGE="registry.access.redhat.com/hi/static:latest"
 
 function setup() {
     TEST_WORKDIR=$(mktemp -d)
+    setup_store
     pushd "$TEST_WORKDIR" > /dev/null
 
     if ! curl -sf --max-time 5 "https://registry.access.redhat.com/v2/" >/dev/null 2>&1; then
@@ -27,6 +28,19 @@ function setup() {
     [[ "$output" =~ "Pulled static" ]]
     [ -d .agents/skills/static ]
     grep -q "trust:" skillctl.yaml
+
+    # The store must contain a fail-closed policy requiring a signature for
+    # exactly this repository, signed by the pinned key.
+    [ -f "$SKILLCTL_STORE/policy.json" ]
+    grep -q '"type": "reject"' "$SKILLCTL_STORE/policy.json"
+    grep -q "\"registry.access.redhat.com/hi/static\"" "$SKILLCTL_STORE/policy.json"
+    grep -q '"type": "sigstoreSigned"' "$SKILLCTL_STORE/policy.json"
+    grep -q "\"keyPath\": \"$TEST_WORKDIR/redhat.pub\"" "$SKILLCTL_STORE/policy.json"
+
+    # ... and a registries.d enabling sigstore attachments for it.
+    [ -f "$SKILLCTL_STORE/registries.d/skillctl.yaml" ]
+    grep -q "registry.access.redhat.com/hi/static:" "$SKILLCTL_STORE/registries.d/skillctl.yaml"
+    grep -q "use-sigstore-attachments: true" "$SKILLCTL_STORE/registries.d/skillctl.yaml"
 }
 
 @test "pull Red Hat image with wrong key fails" {

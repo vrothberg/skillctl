@@ -68,6 +68,21 @@ load helpers
     grep -q "trust: none" skillctl.yaml
 }
 
+@test "pull --store overrides the store location" {
+    run_skillctl init
+
+    run_skillctl pull --trust none --store "$TEST_WORKDIR/custom-store" \
+        quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+
+    # The generated configuration lives in the flag-provided store...
+    [ -f "$TEST_WORKDIR/custom-store/policy.json" ]
+    [ -f "$TEST_WORKDIR/custom-store/registries.d/skillctl.yaml" ]
+
+    # ... not in the one from SKILLCTL_STORE.
+    [ ! -f "$SKILLCTL_STORE/policy.json" ]
+}
+
 @test "pull downloads and extracts a skill" {
     run_skillctl init
     run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0

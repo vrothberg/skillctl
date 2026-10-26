@@ -44,7 +44,7 @@ func updateCommand() *cobra.Command {
 				}
 			}
 
-			storePath, err := store.DefaultStorePath()
+			storePath, err := store.Path(storeFlag)
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ func updateCommand() *cobra.Command {
 				return err
 			}
 
-			return store.WithLock(func() error {
+			return store.WithLock(storePath, func() error {
 				var updated int
 				for _, skill := range m.Skills {
 					fmt.Printf("Checking %s ...\n", skill.Name)
