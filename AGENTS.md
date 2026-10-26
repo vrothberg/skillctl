@@ -111,6 +111,10 @@ versions, and CI runs `skillctl update` to pull and extract updated skills.
 ## Git conventions
 
 - All changes go through pull requests. Never push directly to main.
+- Never work on the main branch, even locally. Always create a local
+  branch for every change before touching any file.
+- Never create a pull request on your own initiative. Always wait for
+  explicit instructions first.
 - Commits must be signed off (`git commit -s`).
 - Add `Co-Authored-By: Claude <model> <noreply@anthropic.com>` to commit
   messages, substituting the actual model name.
