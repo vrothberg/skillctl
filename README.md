@@ -74,6 +74,31 @@ This file serves as a lockfile. Renovate and Dependabot can detect OCI image ref
 
 See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a complete end-to-end example with Renovate integration and CI-driven skill updates.
 
+## GitHub Action
+
+This repository doubles as a GitHub Action, so CI can update skills without installing anything:
+
+```yaml
+permissions:
+  contents: write
+
+steps:
+  - uses: actions/checkout@v7
+
+  - uses: vrothberg/skillctl@main
+```
+
+The action runs `skillctl update --force` and commits changed skill files and the manifest.
+Configure it via inputs:
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `args` | `update --force` | Arguments passed to skillctl |
+| `commit-and-push` | `true` | Commit and push updated skill files and the manifest |
+| `commit-message` | `Update extracted skill files` | Commit message used when skill files changed |
+
+Until releases are cut, reference the action by `@main`; release tags will serve as action refs as well.
+
 ## Signature verification
 
 Signature verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
