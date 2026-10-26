@@ -1,12 +1,10 @@
 GO ?= go
 GO_TEST = $(GO) test -mod=vendor -tags "$(BUILDTAGS)"
 
-VERSION := $(shell cat ./VERSION)
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-LDFLAGS = -X github.com/vrothberg/skillctl/internal/version.Version=$(VERSION) \
-          -X github.com/vrothberg/skillctl/internal/version.Commit=$(COMMIT)
+# Version and commit are derived from the Go build info at compile time,
+# see internal/version.
 BUILDTAGS ?= exclude_graphdriver_btrfs containers_image_openpgp
-GO_BUILD = $(GO) build -mod=vendor -tags "$(BUILDTAGS)" -ldflags "$(LDFLAGS)"
+GO_BUILD = $(GO) build -mod=vendor -tags "$(BUILDTAGS)"
 
 BINARY := bin/skillctl
 CONTAINER_RUNTIME := $(shell command -v podman 2> /dev/null || echo docker)
