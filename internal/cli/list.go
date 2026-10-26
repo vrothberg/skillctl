@@ -28,7 +28,7 @@ func listCommand() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			if _, err := fmt.Fprintln(w, "NAME\tIMAGE\tDIGEST\tPATH"); err != nil {
+			if _, err := fmt.Fprintln(w, "NAME\tIMAGE\tDIGEST\tPATH\tTRUST"); err != nil {
 				return err
 			}
 			for _, s := range m.Skills {
@@ -36,7 +36,7 @@ func listCommand() *cobra.Command {
 				if len(shortDigest) > 19 {
 					shortDigest = shortDigest[:19]
 				}
-				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, s.Image, shortDigest, s.ExtractPath); err != nil {
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", s.Name, s.Image, shortDigest, s.ExtractPath, s.Trust.String()); err != nil {
 					return err
 				}
 			}

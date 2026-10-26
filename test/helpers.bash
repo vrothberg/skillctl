@@ -174,25 +174,6 @@ function push_artifact() {
         "docker://${ref}"
 }
 
-function write_sigstore_policy() {
-    local policy_path="$1"
-    local registry_host="$2"
-    local pubkey_path="$3"
-    cat > "$policy_path" <<EOF
-{
-    "default": [{"type": "insecureAcceptAnything"}],
-    "transports": {
-        "docker": {
-            "${registry_host}": [{
-                "type": "sigstoreSigned",
-                "keyPath": "${pubkey_path}"
-            }]
-        }
-    }
-}
-EOF
-}
-
 function write_registries_d() {
     local dir="$1"
     local registry_host="$2"

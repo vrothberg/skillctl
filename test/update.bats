@@ -18,9 +18,25 @@ load helpers
     [ "$status" -ne 0 ]
 }
 
+@test "update fails when a skill has no trust declaration" {
+    run_skillctl init
+    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    [ "$status" -eq 0 ]
+
+    # Simulate a legacy manifest without a trust declaration
+    sed -i'' -e '/trust:/d' skillctl.yaml
+
+    run "$SKILLCTL" update
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "no trust declaration" ]]
+
+    # Nothing must have been pulled or extracted
+    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
+}
+
 @test "update skips skills with unchanged digest" {
     run_skillctl init
-    run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -eq 0 ]
 
     run_skillctl update
@@ -31,7 +47,7 @@ load helpers
 
 @test "update --force re-extracts even when digests match" {
     run_skillctl init
-    run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -eq 0 ]
 
     run_skillctl update --force
@@ -42,8 +58,8 @@ load helpers
 
 @test "update re-extracts skills with changed digest" {
     run_skillctl init
-    run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
-    run_skillctl pull --name skill-v2 quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    run_skillctl pull --trust none --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none --name skill-v2 quay.io/vrothberg/skillctl-example-skill:v1.0.1
     [ "$status" -eq 0 ]
 
     # Tamper with a digest to simulate Renovate bumping a version
@@ -60,7 +76,7 @@ load helpers
 
 @test "update removes stale files from prior version" {
     run_skillctl init
-    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
 
     # Simulate a file that existed in v1 but not in v2
     echo "stale" > .agents/skills/skillctl-example-skill/old-helper.txt
@@ -78,7 +94,7 @@ load helpers
 
 @test "update handles image tag change (Renovate workflow)" {
     run_skillctl init
-    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
 
     # Simulate Renovate bumping the tag in the manifest

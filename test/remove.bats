@@ -27,7 +27,7 @@ load helpers
 
 @test "remove deletes extracted files and manifest entry" {
     run_skillctl init
-    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -eq 0 ]
     [ -f .agents/skills/skillctl-example-skill/skill.md ]
 
@@ -48,7 +48,7 @@ load helpers
 
 @test "rm alias works" {
     run_skillctl init
-    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -eq 0 ]
 
     run_skillctl rm skillctl-example-skill
@@ -58,8 +58,8 @@ load helpers
 
 @test "remove one skill leaves others intact" {
     run_skillctl init
-    run_skillctl pull --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
-    run_skillctl pull --name skill-v2 quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    run_skillctl pull --trust none --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none --name skill-v2 quay.io/vrothberg/skillctl-example-skill:v1.0.1
     [ "$status" -eq 0 ]
 
     run_skillctl remove skill-v1

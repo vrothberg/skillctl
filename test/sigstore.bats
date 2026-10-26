@@ -1,49 +1,45 @@
 #!/usr/bin/env bats
 #
 # Sigstore signature verification tests, inspired by podman's e2e signing
-# tests (github.com/containers/podman, test/e2e).
+# tests (github.com/containers/podman, test/e2e). Trust is declared via
+# --trust and recorded in the manifest; skillctl synthesizes the signature
+# policy and registries.d configuration from it.
 
 load helpers
 
-@test "pull unsigned artifact fails with sigstore policy" {
+@test "pull unsigned artifact with pinned key fails" {
     start_registry
 
     push_artifact "$REGISTRY_HOST/skill:v1"
 
-    local registries_d="$TEST_WORKDIR/registries.d"
-    write_sigstore_policy "$TEST_WORKDIR/policy.json" "$REGISTRY_HOST" "$SIGSTORE_PUB"
-    write_registries_d "$registries_d" "$REGISTRY_HOST"
-
     run_skillctl init
 
     run "$SKILLCTL" pull \
-        --signature-policy "$TEST_WORKDIR/policy.json" \
-        --registries-dir "$registries_d" \
+        --trust key="$SIGSTORE_PUB" \
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -ne 0 ]
     [[ "$output" =~ "A signature was required, but no signature exists" ]]
+    [ ! -d .agents/skills/skill ]
 }
 
-@test "pull signed artifact succeeds with sigstore policy" {
+@test "pull signed artifact with pinned key succeeds" {
     start_registry
 
     push_artifact "$REGISTRY_HOST/skill:v1" --sign
 
-    local registries_d="$TEST_WORKDIR/registries.d"
-    write_sigstore_policy "$TEST_WORKDIR/policy.json" "$REGISTRY_HOST" "$SIGSTORE_PUB"
-    write_registries_d "$registries_d" "$REGISTRY_HOST"
-
     run_skillctl init
 
     run_skillctl pull \
-        --signature-policy "$TEST_WORKDIR/policy.json" \
-        --registries-dir "$registries_d" \
+        --trust key="$SIGSTORE_PUB" \
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
     [ -f .agents/skills/skill/skill.md ]
+
+    # The trust declaration is recorded in the manifest
+    grep -q "trust:" skillctl.yaml
 }
 
 @test "pull artifact signed with wrong key fails" {
@@ -58,32 +54,26 @@ load helpers
         | openssl pkcs8 -topk8 -nocrypt -out "$wrong_key_dir/wrong.pem" 2>/dev/null
     openssl ec -in "$wrong_key_dir/wrong.pem" -pubout -out "$wrong_key_dir/wrong.pub" 2>/dev/null
 
-    local registries_d="$TEST_WORKDIR/registries.d"
-    write_sigstore_policy "$TEST_WORKDIR/policy.json" "$REGISTRY_HOST" "$wrong_key_dir/wrong.pub"
-    write_registries_d "$registries_d" "$REGISTRY_HOST"
-
     run_skillctl init
 
     run "$SKILLCTL" pull \
-        --signature-policy "$TEST_WORKDIR/policy.json" \
-        --registries-dir "$registries_d" \
+        --trust key="$wrong_key_dir/wrong.pub" \
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -ne 0 ]
     [[ "$output" =~ "cryptographic signature verification failed" ]]
+    [ ! -d .agents/skills/skill ]
 }
 
-@test "pull with permissive policy succeeds for unsigned artifact" {
+@test "pull unsigned artifact with --trust none succeeds" {
     start_registry
 
     push_artifact "$REGISTRY_HOST/skill:v1"
 
-    echo '{"default":[{"type":"insecureAcceptAnything"}]}' > "$TEST_WORKDIR/policy.json"
-
     run_skillctl init
 
     run_skillctl pull \
-        --signature-policy "$TEST_WORKDIR/policy.json" \
+        --trust none \
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
@@ -91,34 +81,53 @@ load helpers
     [ -f .agents/skills/skill/skill.md ]
 }
 
-@test "update respects signature policy" {
+@test "update verifies against the pinned key from the manifest" {
     start_registry
 
-    push_artifact "$REGISTRY_HOST/skill:v1"
-
-    echo '{"default":[{"type":"insecureAcceptAnything"}]}' > "$TEST_WORKDIR/permissive.json"
-
-    local registries_d="$TEST_WORKDIR/registries.d"
-    write_sigstore_policy "$TEST_WORKDIR/strict.json" "$REGISTRY_HOST" "$SIGSTORE_PUB"
-    write_registries_d "$registries_d" "$REGISTRY_HOST"
+    push_artifact "$REGISTRY_HOST/skill:v1" --sign
 
     run_skillctl init
 
-    # Pull with permissive policy succeeds
     run_skillctl pull \
-        --signature-policy "$TEST_WORKDIR/permissive.json" \
+        --trust key="$SIGSTORE_PUB" \
         --tls-verify=false \
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
 
-    # Tamper digest to force re-pull
+    # Tamper digest to force a re-pull
     sed -i'' -e 's/digest: sha256:.*/digest: sha256:0000000000000000000000000000000000000000000000000000000000000000/' skillctl.yaml
 
-    # Update with strict policy fails (unsigned artifact)
-    run "$SKILLCTL" update \
-        --signature-policy "$TEST_WORKDIR/strict.json" \
-        --registries-dir "$registries_d" \
-        --tls-verify=false
+    run_skillctl update --tls-verify=false
+    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
+    [ -f .agents/skills/skill/skill.md ]
+}
+
+@test "update fails when the manifest pins a key the artifact does not match" {
+    start_registry
+
+    push_artifact "$REGISTRY_HOST/skill:v1"
+
+    run_skillctl init
+
+    run_skillctl pull \
+        --trust none \
+        --tls-verify=false \
+        "$REGISTRY_HOST/skill:v1"
+    [ "$status" -eq 0 ]
+
+    # Rewrite the manifest to pin a key for the unsigned artifact
+    cat > skillctl.yaml <<EOF
+apiVersion: v1
+skills:
+    - name: skill
+      image: $REGISTRY_HOST/skill:v1
+      digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      extractPath: .agents/skills/skill
+      trust:
+          key: $SIGSTORE_PUB
+EOF
+
+    run "$SKILLCTL" update --tls-verify=false
     [ "$status" -ne 0 ]
     [[ "$output" =~ "A signature was required, but no signature exists" ]]
 }

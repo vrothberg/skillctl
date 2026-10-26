@@ -14,11 +14,10 @@ import (
 
 func pullCommand() *cobra.Command {
 	var (
-		name            string
-		force           bool
-		signaturePolicy string
-		registriesDir   string
-		tlsVerify       bool
+		name      string
+		force     bool
+		trust     string
+		tlsVerify bool
 	)
 
 	cmd := &cobra.Command{
@@ -35,14 +34,41 @@ func pullCommand() *cobra.Command {
 				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
 			}
 
+			if name == "" {
+				name = skillName(imageRef)
+			}
+
+			if err := manifest.ValidateSkillName(name); err != nil {
+				return err
+			}
+
+			// Trust is declared when the skill is added and then travels
+			// with the manifest: pulling a new version of an already
+			// tracked skill reuses its recorded trust declaration.
+			var trustDecl manifest.Trust
+			if trust != "" {
+				trustDecl, err = manifest.ParseTrust(trust)
+				if err != nil {
+					return err
+				}
+			} else if existing := m.Find(name); existing != nil && existing.Trust.Declared() {
+				trustDecl = existing.Trust
+			} else {
+				return fmt.Errorf(`no trust declared for %s
+
+Declare how to verify it:
+  --trust key=KEY.pub    verify signatures against a public key
+  --trust none           pull without signature verification`, imageRef)
+			}
+
 			storePath, err := store.DefaultStorePath()
 			if err != nil {
 				return err
 			}
 
 			s, err := store.NewWithOptions(storePath, store.StoreOptions{
-				SignaturePolicyPath:    signaturePolicy,
-				RegistriesDirPath:     registriesDir,
+				Skills:                []manifest.Skill{{Name: name, Image: imageRef, Trust: trustDecl}},
+				ManifestDir:           filepath.Dir(manifestPath),
 				InsecureSkipTLSVerify: !tlsVerify,
 			})
 			if err != nil {
@@ -53,14 +79,6 @@ func pullCommand() *cobra.Command {
 				fmt.Printf("Pulling %s ...\n", imageRef)
 				d, err := s.Pull(ctx, imageRef)
 				if err != nil {
-					return err
-				}
-
-				if name == "" {
-					name = skillName(imageRef)
-				}
-
-				if err := manifest.ValidateSkillName(name); err != nil {
 					return err
 				}
 
@@ -86,6 +104,7 @@ func pullCommand() *cobra.Command {
 					Image:       imageRef,
 					Digest:      d.String(),
 					ExtractPath: manifest.SkillExtractPath(name),
+					Trust:       trustDecl,
 				})
 
 				if err := m.Save(manifestPath); err != nil {
@@ -102,8 +121,7 @@ func pullCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "override the skill name (default: derived from image reference)")
 	cmd.Flags().BoolVar(&force, "force", false, "force pull and extraction even if the digest is unchanged")
-	cmd.Flags().StringVar(&signaturePolicy, "signature-policy", "", "path to a signature policy.json file")
-	cmd.Flags().StringVar(&registriesDir, "registries-dir", "", "path to a registries.d directory")
+	cmd.Flags().StringVar(&trust, "trust", "", "trust declaration for the skill: key=KEY.pub or none")
 	cmd.Flags().BoolVar(&tlsVerify, "tls-verify", true, "require HTTPS and verify TLS certificates")
 
 	return cmd
