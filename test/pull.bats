@@ -6,7 +6,7 @@ load helpers
     run "$SKILLCTL" pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -ne 0 ]
     # Must not leave orphaned files on disk
-    [ ! -d skills ]
+    [ ! -d .agents/skills ]
 }
 
 @test "pull requires an argument" {
@@ -42,9 +42,9 @@ load helpers
     [ "$status" -eq 0 ]
 
     # Verify extracted files
-    [ -f skills/skillctl-example-skill/skill.md ]
-    [ -f skills/skillctl-example-skill/counter.txt ]
-    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "1" ]]
+    [ -f .agents/skills/skillctl-example-skill/skill.md ]
+    [ -f .agents/skills/skillctl-example-skill/counter.txt ]
+    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
 
     # Verify manifest was updated
     grep -q "skillctl-example-skill" skillctl.yaml
@@ -78,18 +78,18 @@ load helpers
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
     [[ "$output" != *"is up to date"* ]]
-    [ -f skills/skillctl-example-skill/counter.txt ]
+    [ -f .agents/skills/skillctl-example-skill/counter.txt ]
 }
 
 @test "pull upgrades a skill in-place to a new version" {
     run_skillctl init
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
-    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "1" ]]
+    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
 
     # Pull a newer version of the same skill (same derived name)
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.1
     [[ "$output" =~ "Pulled" ]]
-    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "2" ]]
+    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
 
     # Manifest should have exactly one entry pointing to the new version
     grep -q "v1.0.1" skillctl.yaml
@@ -104,15 +104,15 @@ load helpers
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
 
     # Simulate a file that existed in v1 but not in v2
-    echo "stale" > skills/skillctl-example-skill/old-helper.txt
-    [ -f skills/skillctl-example-skill/old-helper.txt ]
+    echo "stale" > .agents/skills/skillctl-example-skill/old-helper.txt
+    [ -f .agents/skills/skillctl-example-skill/old-helper.txt ]
 
     # Pull a new version; the stale file must be gone
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.1
     [[ "$output" =~ "Pulled" ]]
-    [ ! -f skills/skillctl-example-skill/old-helper.txt ]
-    [ -f skills/skillctl-example-skill/skill.md ]
-    [[ "$(cat skills/skillctl-example-skill/counter.txt)" == "2" ]]
+    [ ! -f .agents/skills/skillctl-example-skill/old-helper.txt ]
+    [ -f .agents/skills/skillctl-example-skill/skill.md ]
+    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
 }
 
 @test "pull two versions with --name" {
@@ -123,12 +123,12 @@ load helpers
     [ "$status" -eq 0 ]
 
     # Both extracted
-    [ -f skills/skill-v1/counter.txt ]
-    [ -f skills/skill-v2/counter.txt ]
+    [ -f .agents/skills/skill-v1/counter.txt ]
+    [ -f .agents/skills/skill-v2/counter.txt ]
 
     # Different content
-    [[ "$(cat skills/skill-v1/counter.txt)" == "1" ]]
-    [[ "$(cat skills/skill-v2/counter.txt)" == "2" ]]
+    [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "1" ]]
+    [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "2" ]]
 
     # Verify list shows both skills
     run_skillctl list

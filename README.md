@@ -28,26 +28,29 @@ $ ./bin/skillctl version
 
 ```console
 $ skillctl init
-Initialized skillctl project: skillctl.yaml and skills/
+Initialized skillctl project: skillctl.yaml and .agents/skills/
 
 $ skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
 Pulling quay.io/vrothberg/skillctl-example-skill:v1.0.0 ...
 Pulled skillctl-example-skill (sha256:c696d5bb34aa)
-Extracted to skills/skillctl-example-skill
+Extracted to .agents/skills/skillctl-example-skill
 
 $ skillctl list
 NAME                    IMAGE                                            DIGEST               PATH
-skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:c696d5bb34aa  skills/skillctl-example-skill
+skillctl-example-skill  quay.io/vrothberg/skillctl-example-skill:v1.0.0  sha256:c696d5bb34aa  .agents/skills/skillctl-example-skill
 
 $ skillctl remove skillctl-example-skill
 Removed skillctl-example-skill
 ```
 
+Skills are extracted to `.agents/skills/`, the cross-client discovery convention of the [Agent Skills](https://agentskills.io) ecosystem.
+Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up skillctl-managed skills automatically.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `skillctl init` | Create `skillctl.yaml` and `skills/` in the current directory |
+| `skillctl init` | Create `skillctl.yaml` and `.agents/skills/` in the current directory |
 | `skillctl pull IMAGE` | Pull a skill from an OCI registry, extract it, and update the manifest |
 | `skillctl update` | Pull and extract all skills listed in the manifest |
 | `skillctl remove NAME` | Remove a skill from the manifest and delete its extracted files |
@@ -64,7 +67,7 @@ skills:
     - name: skillctl-example-skill
       image: quay.io/vrothberg/skillctl-example-skill:v1.0.0
       digest: sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
-      extractPath: skills/skillctl-example-skill
+      extractPath: .agents/skills/skillctl-example-skill
 ```
 
 This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
@@ -137,7 +140,7 @@ $ skillctl pull \
     --registries-dir registries.d \
     registry.access.redhat.com/hi/static:latest
 Pulled static (sha256:f7a764cae676)
-Extracted to skills/static
+Extracted to .agents/skills/static
 ```
 
 When `policy.json` and `registries.d/` are installed at the standard system paths, the flags can be omitted entirely.

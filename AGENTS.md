@@ -92,7 +92,7 @@ default policy at `~/.local/share/skillctl/store/policy.json`. See
 
 The OCI Image Layout store lives at `~/.local/share/skillctl/store/`. This is
 an implementation detail; the user-facing artifacts are `skillctl.yaml` and the
-extracted files in `./skills/`.
+extracted files in `./.agents/skills/`.
 
 ### Renovate integration
 

@@ -29,14 +29,14 @@ load helpers
     run_skillctl init
     run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -eq 0 ]
-    [ -f skills/skillctl-example-skill/skill.md ]
+    [ -f .agents/skills/skillctl-example-skill/skill.md ]
 
     run_skillctl remove skillctl-example-skill
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Removed skillctl-example-skill" ]]
 
     # Extracted files gone
-    [ ! -d skills/skillctl-example-skill ]
+    [ ! -d .agents/skills/skillctl-example-skill ]
 
     # Manifest entry gone
     ! grep -q "skillctl-example-skill" skillctl.yaml
@@ -53,7 +53,7 @@ load helpers
 
     run_skillctl rm skillctl-example-skill
     [ "$status" -eq 0 ]
-    [ ! -d skills/skillctl-example-skill ]
+    [ ! -d .agents/skills/skillctl-example-skill ]
 }
 
 @test "remove one skill leaves others intact" {
@@ -65,8 +65,8 @@ load helpers
     run_skillctl remove skill-v1
     [ "$status" -eq 0 ]
 
-    [ ! -d skills/skill-v1 ]
-    [ -f skills/skill-v2/counter.txt ]
+    [ ! -d .agents/skills/skill-v1 ]
+    [ -f .agents/skills/skill-v2/counter.txt ]
 
     run_skillctl list
     [[ "$output" != *"skill-v1"* ]]
