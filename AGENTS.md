@@ -129,6 +129,9 @@ versions, and CI runs `skillctl update` to pull and extract updated skills.
   substituting the actual model name. Never attribute work to another agent
   or provider.
 - Use descriptive commit messages in imperative style.
+- Keep commit subjects and body lines within 72 characters. Separate the
+  subject from the body with a blank line. Keep trailers and URLs intact
+  when they cannot fit within that limit.
 - Write temporary files to `/tmp/`, never to the repo directory.
 
 ## Example skill
