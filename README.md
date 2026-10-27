@@ -113,7 +113,7 @@ image: quay.io/redhat/skills/translator@sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c
 
 Use `repository@sha256:...`; references containing both a tag and a digest (`repository:tag@sha256:...`) are not supported.
 
-Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
+With the custom manager configuration below, Renovate can detect OCI image references and open PRs to bump versions. CI can then run `skillctl update` to pull and extract all skills.
 
 The `trust` entry declares how a skill is verified, and it travels with the version bump: when Renovate updates the image reference and digest, the new version is verified against the same trust as the version it replaces.
 
@@ -143,6 +143,8 @@ Configure it via inputs:
 | `commit-message` | `Update extracted skill files` | Commit message used when skill files changed |
 
 Until releases are cut, reference the action by `@main`; release tags will serve as action refs as well.
+
+The action installs the CLI with `go install ...@latest` on each run. Pinning the action to a tag or commit pins the workflow implementation, but does not pin the installed CLI version.
 
 ### Use with Renovate
 
