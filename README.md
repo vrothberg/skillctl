@@ -11,6 +11,16 @@ Renovate can propose version bumps, and CI can verify and extract the updated sk
 
 skillctl is built on top of podman's [libartifact](https://pkg.go.dev/go.podman.io/common/pkg/libartifact) package.
 
+## Reviewed updates across projects
+
+1. A skill maintainer publishes a versioned OCI artifact and signs it with a key trusted by consuming projects.
+2. Each project installs the skill with `skillctl pull --trust key=KEY.pub IMAGE` and commits the manifest, public key, and extracted files.
+3. Renovate proposes an image version change in `skillctl.yaml` through a pull request.
+4. CI runs `skillctl update`, verifies the artifact against the project's configured key, and commits the extracted files and resolved digest to the PR branch.
+5. Reviewers inspect the skill content changes alongside the manifest change before merging.
+
+See [Use with Renovate](#use-with-renovate) for the configuration and [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for an example project.
+
 ## Installation
 
 Requires Go >= 1.26.
