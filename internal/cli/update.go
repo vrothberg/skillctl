@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -74,9 +73,6 @@ func updateCommand() *cobra.Command {
 					}
 
 					extractPath := filepath.Join(".", manifest.SkillExtractPath(skill.Name))
-					if err := os.RemoveAll(extractPath); err != nil {
-						return fmt.Errorf("removing old skill files for %s: %w", skill.Name, err)
-					}
 					if err := s.Extract(ctx, skill.Image, extractPath); err != nil {
 						return fmt.Errorf("extracting %s: %w", skill.Name, err)
 					}

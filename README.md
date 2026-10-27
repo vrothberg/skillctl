@@ -83,7 +83,7 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 
 ## Extracted files and local changes
 
-Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it first deletes the existing skill directory, removing local edits and files absent from the new version.
+Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it stages the files before replacing the existing skill directory, removing local edits and files absent from the new version. Installation and removal are confined to the project root; symlinks that escape it are refused.
 Make lasting changes in the skill's source and publish a new version; commit the extracted files in consuming projects for review.
 
 Both commands pull the image and compare its resolved digest with the recorded digest. If the digests match, they skip extraction, even if local files have been changed or deleted.

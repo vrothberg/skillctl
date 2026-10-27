@@ -10,6 +10,7 @@ import (
 	"github.com/nightlyone/lockfile"
 	"github.com/opencontainers/go-digest"
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"github.com/vrothberg/skillctl/internal/skillfs"
 	"go.podman.io/common/libimage"
 	"go.podman.io/common/pkg/libartifact"
 	libartTypes "go.podman.io/common/pkg/libartifact/types"
@@ -157,13 +158,18 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 		return fmt.Errorf("parsing store reference %q: %w", imageRef, err)
 	}
 
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return fmt.Errorf("creating target directory %q: %w", targetDir, err)
+	stage, err := os.MkdirTemp("", "skillctl-extract-")
+	if err != nil {
+		return fmt.Errorf("creating extraction directory: %w", err)
 	}
+	defer func() { _ = os.RemoveAll(stage) }()
 
 	opts := &libartTypes.ExtractOptions{}
-	if err := s.artifact.Extract(ctx, asr, targetDir, opts); err != nil {
+	if err := s.artifact.Extract(ctx, asr, stage, opts); err != nil {
 		return fmt.Errorf("extracting %q to %q: %w", imageRef, targetDir, err)
+	}
+	if err := skillfs.Install(stage, targetDir); err != nil {
+		return fmt.Errorf("installing %q to %q: %w", imageRef, targetDir, err)
 	}
 	return nil
 }

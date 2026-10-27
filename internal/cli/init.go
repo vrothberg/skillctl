@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"github.com/vrothberg/skillctl/internal/skillfs"
 )
 
 func initCommand() *cobra.Command {
@@ -21,14 +22,13 @@ func initCommand() *cobra.Command {
 				return fmt.Errorf("%s already exists", manifest.DefaultFile)
 			}
 
+			skillDir := filepath.Join(".", manifest.DefaultSkillDir)
+			if err := skillfs.MkdirAll(skillDir); err != nil {
+				return fmt.Errorf("creating skills directory: %w", err)
+			}
 			m := manifest.New()
 			if err := m.Save(manifestPath); err != nil {
 				return fmt.Errorf("creating manifest: %w", err)
-			}
-
-			skillDir := filepath.Join(".", manifest.DefaultSkillDir)
-			if err := os.MkdirAll(skillDir, 0o755); err != nil {
-				return fmt.Errorf("creating skills directory: %w", err)
 			}
 
 			fmt.Printf("Initialized skillctl project: %s and %s/\n", manifest.DefaultFile, manifest.DefaultSkillDir)
