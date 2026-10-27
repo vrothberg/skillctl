@@ -81,6 +81,14 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 | `skillctl list` | List skills tracked in the manifest |
 | `skillctl version` | Print the version |
 
+## Extracted files and local changes
+
+Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it first deletes the existing skill directory, removing local edits and files absent from the new version.
+Make lasting changes in the skill's source and publish a new version; commit the extracted files in consuming projects for review.
+
+Both commands pull the image and compare its resolved digest with the recorded digest. If the digests match, they skip extraction, even if local files have been changed or deleted.
+Use `skillctl pull --force IMAGE` or `skillctl update --force` to restore files from the artifact even when the digest is unchanged.
+
 ## Manifest format
 
 `skillctl.yaml` tracks skills with their OCI image references, resolved digests, and trust declarations:
