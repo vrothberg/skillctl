@@ -1,10 +1,15 @@
 <p align="center">
   <img src="logo.svg" alt="skillctl logo" width="400">
 </p>
-Manage AI agent skills as OCI artifacts with the same supply-chain guarantees as container images.
+Distribute shared AI agent skills through OCI registries and update them through reviewed pull requests.
 
-skillctl is a thin CLI built on top of podman's [libartifact](https://pkg.go.dev/go.podman.io/common/pkg/libartifact) package.
-It pulls skills from OCI registries, extracts them locally, and tracks pinned versions in a manifest file that tools like Renovate or Dependabot can monitor for version bumps.
+skillctl helps teams reuse skills across projects with explicit signature verification and version tracking.
+It installs skills into `.agents/skills/` and records their image references, resolved digests, and trust declarations in `skillctl.yaml`.
+
+It fits teams that already use container registries and want to reuse their publishing and review infrastructure for agent skills.
+Renovate can propose version bumps, and CI can verify and extract the updated skills so reviewers see the content changes alongside the manifest changes.
+
+skillctl is built on top of podman's [libartifact](https://pkg.go.dev/go.podman.io/common/pkg/libartifact) package.
 
 ## Installation
 
