@@ -11,6 +11,13 @@ Renovate can propose version bumps, and CI can verify and extract the updated sk
 
 skillctl is built on top of podman's [libartifact](https://pkg.go.dev/go.podman.io/common/pkg/libartifact) package.
 
+## Why OCI?
+
+OCI registries give teams a shared place to publish and distribute versioned skills using the registry access controls and signing infrastructure they already operate.
+The same artifact can be consumed by many projects, with each project declaring its own verification key and reviewing updates on its own schedule.
+
+This is particularly useful for organizations distributing internal skills through an existing registry: skillctl connects that publishing infrastructure to the files agents discover in each project.
+
 ## Reviewed updates across projects
 
 1. A skill maintainer publishes a versioned OCI artifact and signs it with a key trusted by consuming projects.
