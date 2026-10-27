@@ -188,13 +188,16 @@ skillctl is fail-closed about trust: every skill must declare how it is verified
 | `trust: none` | Explicitly opt out of verification |
 | no `trust` entry | `pull` and `update` refuse the skill |
 
+Signature verification establishes that the artifact was signed by the configured key and has not been modified since signing.
+It does not evaluate the safety or correctness of the skill's instructions. Review skill content and changes before allowing an agent to use them.
+
 Trust is declared when a skill is added and then lives in the manifest:
 
 ```console
 $ skillctl pull --trust key=keys/translator.pub quay.io/redhat/skills/translator:1.0
 ```
 
-Pulling a new version of a tracked skill without `--trust` reuses the declaration recorded in the manifest, and `skillctl update` verifies every skill against its pinned key. Verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
+Pulling a new version of a tracked skill without `--trust` reuses the declaration recorded in the manifest, and `skillctl update` verifies skills with a pinned key against that key. Skills declaring `trust: none` are pulled without signature verification. Verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
 
 skillctl derives the signature policy and `registries.d` configuration from the manifest on every run and keeps them in its internal store (`~/.local/share/skillctl/store/`). Ambient system configuration, such as `/etc/containers/policy.json`, is not consulted: trust lives in the repository, so every machine, laptop or CI runner, verifies exactly the same way. See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the policy format skillctl generates.
 
