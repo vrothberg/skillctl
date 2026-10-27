@@ -7,6 +7,29 @@
 
 load helpers
 
+@test "tagged digest references preserve input and verify by digest on pull and update" {
+    start_registry
+    push_artifact "$REGISTRY_HOST/skill:v1" --sign
+    run_skillctl init
+    run_skillctl pull --trust key="$SIGSTORE_PUB" --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" =~ "Pulled skill" ]]
+    local digest
+    digest=$(awk '/digest:/ {print $2}' skillctl.yaml)
+    local image="$REGISTRY_HOST/skill:nonexistent@$digest"
+
+    # The nonexistent tag must be ignored; the digest selects the signed artifact.
+    run_skillctl pull --force --tls-verify=false "$image"
+    [[ "$output" =~ "Pulled skill" ]]
+    [ -f .agents/skills/skill/skill.md ]
+    grep -Fq "image: $image" skillctl.yaml
+
+    rm .agents/skills/skill/skill.md
+    run_skillctl update --force --tls-verify=false
+    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
+    [ -f .agents/skills/skill/skill.md ]
+    grep -Fq "image: $image" skillctl.yaml
+}
+
 @test "pull unsigned artifact with pinned key fails" {
     start_registry
 

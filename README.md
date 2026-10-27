@@ -119,7 +119,7 @@ To pin immutable content, use a digest-qualified image reference instead of a ta
 image: quay.io/redhat/skills/translator@sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
 ```
 
-Use `repository@sha256:...`; references containing both a tag and a digest (`repository:tag@sha256:...`) are not supported.
+References containing both a tag and a digest (`repository:tag@sha256:...`) are also supported. The digest selects the content; the tag is ignored when pulling, but preserved in the manifest for readability and update tooling.
 
 With the custom manager configuration below, Renovate can detect OCI image references and open PRs to bump versions. CI can then run `skillctl update` to pull and extract all skills.
 

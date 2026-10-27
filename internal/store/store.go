@@ -13,6 +13,7 @@ import (
 	"go.podman.io/common/libimage"
 	"go.podman.io/common/pkg/libartifact"
 	libartTypes "go.podman.io/common/pkg/libartifact/types"
+	"go.podman.io/image/v5/docker/reference"
 	"go.podman.io/image/v5/types"
 )
 
@@ -106,7 +107,11 @@ func WithLock(storePath string, fn func() error) error {
 }
 
 func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error) {
-	ref, err := libartifact.NewArtifactReference(imageRef)
+	normalized, err := normalizeImageReference(imageRef)
+	if err != nil {
+		return "", fmt.Errorf("parsing image reference %q: %w", imageRef, err)
+	}
+	ref, err := libartifact.NewArtifactReference(normalized)
 	if err != nil {
 		return "", fmt.Errorf("parsing image reference %q: %w", imageRef, err)
 	}
@@ -124,7 +129,11 @@ func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error
 }
 
 func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) error {
-	asr, err := libartifact.NewArtifactStorageReference(imageRef)
+	normalized, err := normalizeImageReference(imageRef)
+	if err != nil {
+		return fmt.Errorf("parsing store reference %q: %w", imageRef, err)
+	}
+	asr, err := libartifact.NewArtifactStorageReference(normalized)
 	if err != nil {
 		return fmt.Errorf("parsing store reference %q: %w", imageRef, err)
 	}
@@ -138,6 +147,30 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 		return fmt.Errorf("extracting %q to %q: %w", imageRef, targetDir, err)
 	}
 	return nil
+}
+
+// normalizeImageReference follows libimage's handling of tagged and digested
+// references: the digest is authoritative and the tag is ignored. Normalize at
+// the libartifact boundary so the manifest retains the user's original input.
+func normalizeImageReference(imageRef string) (string, error) {
+	ref, err := reference.Parse(imageRef)
+	if err != nil {
+		return "", err
+	}
+	named, ok := ref.(reference.Named)
+	if !ok {
+		return imageRef, nil
+	}
+	_, tagged := named.(reference.NamedTagged)
+	digested, hasDigest := named.(reference.Digested)
+	if !tagged || !hasDigest {
+		return imageRef, nil
+	}
+	normalized, err := reference.WithDigest(reference.TrimNamed(named), digested.Digest())
+	if err != nil {
+		return "", err
+	}
+	return normalized.String(), nil
 }
 
 func (s *Store) List(ctx context.Context) (libartifact.ArtifactList, error) {
