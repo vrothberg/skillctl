@@ -66,7 +66,7 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 
 ## Manifest format
 
-`skillctl.yaml` tracks pinned skills with their OCI image references, digests, and trust declarations:
+`skillctl.yaml` tracks skills with their OCI image references, resolved digests, and trust declarations:
 
 ```yaml
 apiVersion: v1
@@ -85,7 +85,18 @@ skills:
       trust: none
 ```
 
-This file serves as a lockfile. Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
+The `image` field determines what is pulled. The separate `digest` field records the content retrieved by the last successful pull or update and is used to detect changes; it does not constrain future pulls.
+If a tag points to new content, `skillctl update` retrieves that content and updates the recorded digest, even when the image reference in the manifest has not changed.
+
+To pin immutable content, use a digest-qualified image reference instead of a tag. For example, using the digest from the manifest above:
+
+```yaml
+image: quay.io/redhat/skills/translator@sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
+```
+
+Use `repository@sha256:...`; references containing both a tag and a digest (`repository:tag@sha256:...`) are not supported.
+
+Renovate and Dependabot can detect OCI image references, open PRs to bump versions, and CI can run `skillctl update` to pull and extract all skills.
 
 The `trust` entry declares how a skill is verified, and it travels with the version bump: when Renovate updates the image reference and digest, the new version is verified against the same trust as the version it replaces.
 
@@ -163,7 +174,7 @@ jobs:
       - uses: vrothberg/skillctl@main
 ```
 
-The resulting flow: Renovate opens a PR bumping the tag in `skillctl.yaml`, the push triggers the action, which pulls the new version and commits the extracted skill files and the pinned digest to the PR branch. The merged PR therefore contains both the lockfile and the content changes, always in sync.
+The resulting flow: Renovate opens a PR bumping the tag in `skillctl.yaml`, the push triggers the action, which pulls the new version and commits the extracted skill files and the resolved digest to the PR branch. Reviewers can inspect both the manifest and the content changes in the same PR.
 
 See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-example) for a live setup of this flow.
 
