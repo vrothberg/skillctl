@@ -129,7 +129,7 @@ See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-e
 
 ## GitHub Action
 
-This repository doubles as a GitHub Action, so CI can update skills without installing anything:
+This repository doubles as a GitHub Action, so CI can update skills without a separate CLI installation step:
 
 ```yaml
 permissions:
@@ -142,11 +142,11 @@ steps:
 ```
 
 The action runs `skillctl update --force` and commits changed skill files and the manifest.
+The command is fixed; there is no `args` input. Commit messages are treated as literal text.
 Configure it via inputs:
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| `args` | `update --force` | Arguments passed to skillctl |
 | `commit-and-push` | `true` | Commit and push updated skill files and the manifest |
 | `commit-message` | `Update extracted skill files` | Commit message used when skill files changed |
 

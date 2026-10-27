@@ -2,16 +2,10 @@ name: "skillctl"
 description: >
   Pull and extract OCI-based AI agent skills tracked by skillctl, and
   commit the updated files. Wraps the documented go install path, so no
-  system dependencies are required. Requires the jobs permission
+  extra system libraries are required. Requires the jobs permission
   `contents: write` when commit-and-push is enabled.
 
 inputs:
-  args:
-    description: >
-      Arguments passed to skillctl. Defaults to a forced update so the
-      working tree converges to the manifest even when the pinned digest
-      already matches.
-    default: "update --force"
   commit-and-push:
     description: >
       Commit and push the extracted skill files and the manifest. Set to
@@ -41,18 +35,12 @@ runs:
 
     - name: Run skillctl
       shell: bash
-      run: skillctl ${{ inputs.args }}
+      run: skillctl update --force
 
     - name: Commit and push updated skills
       if: ${{ inputs.commit-and-push == 'true' }}
       shell: bash
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add .agents/skills/ skillctl.yaml
-        if git diff --cached --quiet; then
-          echo "No skill changes to commit"
-        else
-          git commit -m "${{ inputs.commit-message }}"
-          git push
-        fi
+      env:
+        SKILLCTL_COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        SKILLCTL_ACTION_PATH: ${{ github.action_path }}
+      run: bash "$SKILLCTL_ACTION_PATH/hack/action/commit.sh"
