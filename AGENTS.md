@@ -124,8 +124,10 @@ versions, and CI runs `skillctl update` to pull and extract updated skills.
 - Never create a pull request on your own initiative. Always wait for
   explicit instructions first.
 - Commits must be signed off (`git commit -s`).
-- Add `Co-Authored-By: Claude <model> <noreply@anthropic.com>` to commit
-  messages, substituting the actual model name.
+- Attribute AI contributions to the agent and model actually used. For Codex,
+  add `Co-Authored-By: Codex <model> <noreply@openai.com>` to commit messages,
+  substituting the actual model name. Never attribute work to another agent
+  or provider.
 - Use descriptive commit messages in imperative style.
 - Write temporary files to `/tmp/`, never to the repo directory.
 
