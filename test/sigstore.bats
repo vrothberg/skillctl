@@ -64,18 +64,8 @@ load helpers
     # The trust declaration is recorded in the manifest
     grep -q "trust:" skillctl.yaml
 
-    # The store contains a fail-closed policy requiring a signature for
-    # exactly this repository, signed by the pinned key...
-    [ -f "$SKILLCTL_STORE/policy.json" ]
-    grep -q '"type": "reject"' "$SKILLCTL_STORE/policy.json"
-    grep -q "\"$REGISTRY_HOST/skill\"" "$SKILLCTL_STORE/policy.json"
-    grep -q '"type": "sigstoreSigned"' "$SKILLCTL_STORE/policy.json"
-    grep -q "\"keyPath\": \"$SIGSTORE_PUB\"" "$SKILLCTL_STORE/policy.json"
-
-    # ... and a registries.d enabling sigstore attachments for it.
-    [ -f "$SKILLCTL_STORE/registries.d/skillctl.yaml" ]
-    grep -q "$REGISTRY_HOST/skill:" "$SKILLCTL_STORE/registries.d/skillctl.yaml"
-    grep -q "use-sigstore-attachments: true" "$SKILLCTL_STORE/registries.d/skillctl.yaml"
+    # Trust configuration must not be shared between invocations.
+    [ ! -f "$SKILLCTL_STORE/policy.json" ]
 }
 
 @test "pull artifact signed with wrong key fails" {
@@ -116,16 +106,7 @@ load helpers
     [[ "$output" =~ "Pulled" ]]
     [ -f .agents/skills/skill/skill.md ]
 
-    # The generated policy accepts exactly this repository and rejects
-    # everything else...
-    [ -f "$SKILLCTL_STORE/policy.json" ]
-    grep -q '"type": "reject"' "$SKILLCTL_STORE/policy.json"
-    grep -q "\"$REGISTRY_HOST/skill\"" "$SKILLCTL_STORE/policy.json"
-    grep -q '"type": "insecureAcceptAnything"' "$SKILLCTL_STORE/policy.json"
-
-    # ... and no sigstore attachments are looked up for untrusted repositories.
-    [ -f "$SKILLCTL_STORE/registries.d/skillctl.yaml" ]
-    ! grep -q "use-sigstore-attachments: true" "$SKILLCTL_STORE/registries.d/skillctl.yaml"
+    [ ! -f "$SKILLCTL_STORE/policy.json" ]
 }
 
 @test "update verifies against the pinned key from the manifest" {

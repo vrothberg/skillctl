@@ -10,6 +10,7 @@ import (
 	"github.com/nightlyone/lockfile"
 	"github.com/opencontainers/go-digest"
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"github.com/vrothberg/skillctl/internal/skillfs"
 	"go.podman.io/common/libimage"
 	"go.podman.io/common/pkg/libartifact"
 	libartTypes "go.podman.io/common/pkg/libartifact/types"
@@ -22,6 +23,7 @@ const defaultStoreDir = ".local/share/skillctl/store"
 type Store struct {
 	artifact *libartifact.ArtifactStore
 	sc       *types.SystemContext
+	trustDir string
 }
 
 type StoreOptions struct {
@@ -61,12 +63,24 @@ func Path(flagValue string) (string, error) {
 
 func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	sc := &types.SystemContext{}
+	// Never let another invocation replace the verification configuration used
+	// by this store, even before the operation lock is acquired.
+	trustDir, err := os.MkdirTemp("", "skillctl-trust-")
+	if err != nil {
+		return nil, fmt.Errorf("creating private trust directory: %w", err)
+	}
+	success := false
+	defer func() {
+		if !success {
+			_ = os.RemoveAll(trustDir)
+		}
+	}()
 
 	// Signature verification is configured exclusively by the manifest's
 	// trust declarations. The generated configuration replaces any ambient
 	// system policy and registries.d, so skillctl behaves identically on
 	// every machine.
-	policyPath, registriesDir, err := writeTrustConfig(storePath, opts.Skills, opts.ManifestDir)
+	policyPath, registriesDir, err := writeTrustConfig(trustDir, opts.Skills, opts.ManifestDir)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +96,13 @@ func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 		return nil, fmt.Errorf("creating artifact store: %w", err)
 	}
 
-	return &Store{artifact: as, sc: sc}, nil
+	success = true
+	return &Store{artifact: as, sc: sc, trustDir: trustDir}, nil
+}
+
+// Close removes this store's private verification configuration.
+func (s *Store) Close() error {
+	return os.RemoveAll(s.trustDir)
 }
 
 func WithLock(storePath string, fn func() error) error {
@@ -138,13 +158,18 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 		return fmt.Errorf("parsing store reference %q: %w", imageRef, err)
 	}
 
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return fmt.Errorf("creating target directory %q: %w", targetDir, err)
+	stage, err := os.MkdirTemp("", "skillctl-extract-")
+	if err != nil {
+		return fmt.Errorf("creating extraction directory: %w", err)
 	}
+	defer func() { _ = os.RemoveAll(stage) }()
 
 	opts := &libartTypes.ExtractOptions{}
-	if err := s.artifact.Extract(ctx, asr, targetDir, opts); err != nil {
+	if err := s.artifact.Extract(ctx, asr, stage, opts); err != nil {
 		return fmt.Errorf("extracting %q to %q: %w", imageRef, targetDir, err)
+	}
+	if err := skillfs.Install(stage, targetDir); err != nil {
+		return fmt.Errorf("installing %q to %q: %w", imageRef, targetDir, err)
 	}
 	return nil
 }

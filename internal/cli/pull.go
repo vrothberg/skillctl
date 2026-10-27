@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"github.com/vrothberg/skillctl/internal/skillfs"
 	"github.com/vrothberg/skillctl/internal/store"
 )
 
@@ -74,6 +74,7 @@ Declare how to verify it:
 			if err != nil {
 				return err
 			}
+			defer func() { _ = s.Close() }()
 
 			return store.WithLock(storePath, func() error {
 				fmt.Printf("Pulling %s ...\n", imageRef)
@@ -91,10 +92,6 @@ Declare how to verify it:
 
 				extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
 
-				if err := os.RemoveAll(extractPath); err != nil {
-					return fmt.Errorf("removing old skill files: %w", err)
-				}
-
 				if err := s.Extract(ctx, imageRef, extractPath); err != nil {
 					return err
 				}
@@ -108,7 +105,7 @@ Declare how to verify it:
 				})
 
 				if err := m.Save(manifestPath); err != nil {
-					_ = os.RemoveAll(extractPath)
+					_ = skillfs.RemoveAll(extractPath)
 					return fmt.Errorf("updating manifest: %w", err)
 				}
 

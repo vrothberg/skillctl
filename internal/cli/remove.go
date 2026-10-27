@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"github.com/vrothberg/skillctl/internal/skillfs"
 	"github.com/vrothberg/skillctl/internal/store"
 )
 
@@ -44,13 +44,12 @@ func removeCommand() *cobra.Command {
 					return fmt.Errorf("skill %q not found in manifest", name)
 				}
 
+				extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
+				if err := skillfs.RemoveAll(extractPath); err != nil {
+					return fmt.Errorf("removing extracted files: %w", err)
+				}
 				if err := m.Save(manifestPath); err != nil {
 					return fmt.Errorf("updating manifest: %w", err)
-				}
-
-				extractPath := filepath.Join(".", manifest.SkillExtractPath(name))
-				if err := os.RemoveAll(extractPath); err != nil {
-					return fmt.Errorf("removing extracted files: %w", err)
 				}
 
 				fmt.Printf("Removed %s\n", name)

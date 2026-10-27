@@ -83,7 +83,7 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 
 ## Extracted files and local changes
 
-Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it first deletes the existing skill directory, removing local edits and files absent from the new version.
+Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it stages the files before replacing the existing skill directory, removing local edits and files absent from the new version. Installation and removal are confined to the project root; symlinks that escape it are refused.
 Make lasting changes in the skill's source and publish a new version; commit the extracted files in consuming projects for review.
 
 Both commands pull the image and compare its resolved digest with the recorded digest. If the digests match, they skip extraction, even if local files have been changed or deleted.
@@ -129,7 +129,7 @@ See [skillctl-consumer-example](https://github.com/vrothberg/skillctl-consumer-e
 
 ## GitHub Action
 
-This repository doubles as a GitHub Action, so CI can update skills without installing anything:
+This repository doubles as a GitHub Action, so CI can update skills without a separate CLI installation step:
 
 ```yaml
 permissions:
@@ -142,11 +142,11 @@ steps:
 ```
 
 The action runs `skillctl update --force` and commits changed skill files and the manifest.
+The command is fixed; there is no `args` input. Commit messages are treated as literal text.
 Configure it via inputs:
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| `args` | `update --force` | Arguments passed to skillctl |
 | `commit-and-push` | `true` | Commit and push updated skill files and the manifest |
 | `commit-message` | `Update extracted skill files` | Commit message used when skill files changed |
 
@@ -226,7 +226,7 @@ $ skillctl pull --trust key=keys/translator.pub quay.io/redhat/skills/translator
 
 Pulling a new version of a tracked skill without `--trust` reuses the declaration recorded in the manifest, and `skillctl update` verifies skills with a pinned key against that key. Skills declaring `trust: none` are pulled without signature verification. Verification happens transparently at pull time via the `containers/image` library, the same mechanism used by `podman pull`.
 
-skillctl derives the signature policy and `registries.d` configuration from the manifest on every run and keeps them in its internal store (`~/.local/share/skillctl/store/`). Ambient system configuration, such as `/etc/containers/policy.json`, is not consulted: trust lives in the repository, so every machine, laptop or CI runner, verifies exactly the same way. See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the policy format skillctl generates.
+skillctl derives the signature policy and `registries.d` configuration from the manifest on every run. Each operation uses a private temporary directory, removed when it finishes, so concurrent invocations cannot change each other's verification policy. Ambient system configuration, such as `/etc/containers/policy.json`, is not consulted: trust lives in the repository, so every machine, laptop or CI runner, verifies exactly the same way. See the [containers-policy.json(5)](https://github.com/podman-container-tools/container-libs/blob/main/image/docs/containers-policy.json.5.md) man page for the policy format skillctl generates.
 
 Verification keys are public keys: commit them next to `skillctl.yaml` so CI verifies the same way as local pulls.
 
@@ -234,11 +234,10 @@ Trust is scoped per repository: skills sharing an OCI repository must declare th
 
 ## Store
 
-skillctl keeps its OCI artifact store and the generated signature policy and `registries.d` configuration in `~/.local/share/skillctl/store/`. Override the location with the `--store` flag or the `SKILLCTL_STORE` environment variable, which is what the test suite uses to inspect the generated configuration:
+skillctl keeps its OCI artifact store in `~/.local/share/skillctl/store/`. Override the location with the `--store` flag or the `SKILLCTL_STORE` environment variable:
 
 ```console
 $ skillctl --store /tmp/skillctl-store pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
-$ cat /tmp/skillctl-store/policy.json
 ```
 
 ### Example: verifying Red Hat skills

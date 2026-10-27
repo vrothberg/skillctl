@@ -75,12 +75,13 @@ load helpers
         quay.io/vrothberg/skillctl-example-skill:v1.0.0
     [ "$status" -eq 0 ]
 
-    # The generated configuration lives in the flag-provided store...
-    [ -f "$TEST_WORKDIR/custom-store/policy.json" ]
-    [ -f "$TEST_WORKDIR/custom-store/registries.d/skillctl.yaml" ]
+    [[ "$output" =~ "Pulled" ]]
+    # Artifacts live in the flag-provided store; trust files are private
+    # to the operation and cleaned up when it finishes.
+    [ -f "$TEST_WORKDIR/custom-store/index.json" ]
 
     # ... not in the one from SKILLCTL_STORE.
-    [ ! -f "$SKILLCTL_STORE/policy.json" ]
+    [ ! -f "$SKILLCTL_STORE/index.json" ]
 }
 
 @test "pull downloads and extracts a skill" {

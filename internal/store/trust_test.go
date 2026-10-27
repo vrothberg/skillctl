@@ -8,7 +8,59 @@ import (
 	"testing"
 
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"go.podman.io/image/v5/signature"
 )
+
+func TestStoresKeepIndependentTrust(t *testing.T) {
+	root := t.TempDir()
+	key := writeKeyFile(t, root, "key.pub")
+	storePath := filepath.Join(root, "store")
+	trusted, err := NewWithOptions(storePath, StoreOptions{Skills: []manifest.Skill{
+		{Name: "skill", Image: "quay.io/example/skill:v1", Trust: manifest.Trust{Key: key}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = trusted.Close() })
+	err = WithLock(storePath, func() error {
+		other, err := NewWithOptions(storePath, StoreOptions{Skills: []manifest.Skill{
+			{Name: "skill", Image: "quay.io/example/skill:v2", Trust: manifest.Trust{None: true}},
+		}})
+		if err != nil {
+			return err
+		}
+		defer func() { _ = other.Close() }()
+		for _, tc := range []struct {
+			store *Store
+			want  string
+		}{{trusted, "sigstoreSigned"}, {other, "insecureAcceptAnything"}} {
+			policy, err := signature.DefaultPolicy(tc.store.sc)
+			if err != nil {
+				return err
+			}
+			rule, err := json.Marshal(policy.Transports["docker"]["quay.io/example/skill"])
+			if err != nil {
+				return err
+			}
+			if !strings.Contains(string(rule), tc.want) {
+				t.Errorf("expected %s policy, got %s", tc.want, rule)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trusted.sc.SignaturePolicyPath == filepath.Join(storePath, "policy.json") {
+		t.Fatal("verification must not use the shared policy path")
+	}
+	if err := trusted.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(trusted.trustDir); !os.IsNotExist(err) {
+		t.Fatalf("private trust directory was not removed: %v", err)
+	}
+}
 
 func writeKeyFile(t *testing.T, dir, name string) string {
 	t.Helper()
@@ -22,7 +74,7 @@ func writeKeyFile(t *testing.T, dir, name string) string {
 	return path
 }
 
-func TestWriteTrustConfig(t *testing.T) {
+func TestStoreTrustConfig(t *testing.T) {
 	dir := t.TempDir()
 	key := writeKeyFile(t, dir, "foo.pub")
 
@@ -32,12 +84,21 @@ func TestWriteTrustConfig(t *testing.T) {
 		{Name: "untrusted", Image: "quay.io/example/untrusted:v1", Trust: manifest.Trust{None: true}},
 	}
 
-	policyPath, registriesDir, err := writeTrustConfig(storePath, skills, dir)
+	s, err := NewWithOptions(storePath, StoreOptions{Skills: skills, ManifestDir: dir})
 	if err != nil {
-		t.Fatalf("writeTrustConfig: %v", err)
+		t.Fatalf("NewWithOptions: %v", err)
 	}
-	if policyPath != filepath.Join(storePath, "policy.json") {
-		t.Errorf("unexpected policy path %q", policyPath)
+	t.Cleanup(func() { _ = s.Close() })
+	policyPath, registriesDir := s.sc.SignaturePolicyPath, s.sc.RegistriesDirPath
+	if policyPath != filepath.Join(s.trustDir, "policy.json") || registriesDir != filepath.Join(s.trustDir, "registries.d") {
+		t.Fatalf("store uses unexpected verification paths: %s, %s", policyPath, registriesDir)
+	}
+	info, err := os.Stat(s.trustDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Errorf("trust directory permissions: got %o, want 700", info.Mode().Perm())
 	}
 
 	data, err := os.ReadFile(policyPath)
@@ -79,6 +140,14 @@ func TestWriteTrustConfig(t *testing.T) {
 	}
 	if !strings.Contains(regYAML, "use-sigstore-attachments: true") {
 		t.Errorf("expected use-sigstore-attachments in registries.d:\n%s", regYAML)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{policyPath, registriesDir, s.trustDir} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("verification path %q was not cleaned up: %v", path, err)
+		}
 	}
 }
 
