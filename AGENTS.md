@@ -88,13 +88,17 @@ is verified (`trust: {key: ...}` for a pinned public key, `trust: none` for
 an explicit opt-out), and skills without a declaration are refused by both
 `pull` and `update`. At pull time skillctl synthesizes the `containers/image`
 signature policy and the `registries.d` configuration from the manifest's
-trust declarations and keeps them in `~/.local/share/skillctl/store/`.
+trust declarations in a private temporary directory for each operation,
+removed when the operation finishes. Verification files are never shared
+between invocations.
 Ambient system configuration (`/etc/containers/policy.json` and friends) is
 deliberately not consulted, so verification behaves identically on every
 machine. The store location can be overridden with the `--store` flag or the
-`SKILLCTL_STORE` environment variable; the test suite does so to inspect the
-generated configuration. See `internal/manifest/manifest.go` (the Trust type)
-and `internal/store/trust.go` (the config synthesis).
+`SKILLCTL_STORE` environment variable; the test suite does so to isolate
+artifacts. Go tests inspect the generated verification files while the
+store is open and check their removal after Close. See
+`internal/manifest/manifest.go` (the Trust type) and
+`internal/store/trust.go` (the config synthesis).
 
 ### Local artifact store
 

@@ -74,6 +74,7 @@ Declare how to verify it:
 			if err != nil {
 				return err
 			}
+			defer func() { _ = s.Close() }()
 
 			return store.WithLock(storePath, func() error {
 				fmt.Printf("Pulling %s ...\n", imageRef)

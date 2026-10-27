@@ -57,6 +57,7 @@ func updateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer func() { _ = s.Close() }()
 
 			return store.WithLock(storePath, func() error {
 				var updated int
