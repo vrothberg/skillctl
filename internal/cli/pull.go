@@ -83,8 +83,22 @@ Declare how to verify it:
 					return err
 				}
 
+				pulled := manifest.Skill{
+					Name:        name,
+					Image:       imageRef,
+					Digest:      d.String(),
+					ExtractPath: manifest.SkillExtractPath(name),
+					Trust:       trustDecl,
+				}
 				if !force {
 					if existing := m.Find(name); existing != nil && existing.Digest == d.String() {
+						if *existing != pulled {
+							m.AddOrUpdate(pulled)
+							if err := m.Save(manifestPath); err != nil {
+								return fmt.Errorf("updating manifest: %w", err)
+							}
+							fmt.Printf("Updated manifest for %s\n", name)
+						}
 						fmt.Printf("%s is up to date (%s)\n", name, d.String()[:19])
 						return nil
 					}
@@ -96,13 +110,7 @@ Declare how to verify it:
 					return err
 				}
 
-				m.AddOrUpdate(manifest.Skill{
-					Name:        name,
-					Image:       imageRef,
-					Digest:      d.String(),
-					ExtractPath: manifest.SkillExtractPath(name),
-					Trust:       trustDecl,
-				})
+				m.AddOrUpdate(pulled)
 
 				if err := m.Save(manifestPath); err != nil {
 					_ = skillfs.RemoveAll(extractPath)
