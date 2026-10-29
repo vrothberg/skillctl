@@ -13,7 +13,7 @@ function setup() {
     fi
 }
 
-@test "Red Hat signatures reject a wrong key and verify before unsafe image extraction" {
+@test "Red Hat signatures reject a wrong key and verify and extract with the pinned key" {
     openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out wrong.key 2>/dev/null
     openssl pkey -in wrong.key -pubout -out wrong.pub 2>/dev/null
     curl -sfL "$REDHAT_KEY_URL" -o redhat.pub
@@ -26,13 +26,10 @@ function setup() {
     [ ! -d .agents/skills/static ]
     ! grep -q 'name: static' skillctl.yaml
 
-    run "$SKILLCTL" pull --trust key=redhat.pub "$REDHAT_IMAGE"
-    [ "$status" -ne 0 ]
-    # Reaching extraction proves signature verification succeeded. This
-    # container image has absolute symlinks unsuitable for a skill directory.
-    [[ "$output" == *"extracting tar layer"* ]]
-    [[ "$output" == *"symlink"*"escapes the skill directory"* ]]
-    [ ! -d .agents/skills/static ]
-    ! grep -q 'name: static' skillctl.yaml
+    run_skillctl pull --trust key=redhat.pub "$REDHAT_IMAGE"
+    [[ "$output" == *"Pulled static"* ]]
+    [ -d .agents/skills/static ]
+    grep -q 'name: static' skillctl.yaml
+    grep -q 'key: redhat.pub' skillctl.yaml
     [ ! -f "$SKILLCTL_STORE/policy.json" ]
 }

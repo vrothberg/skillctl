@@ -10,6 +10,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	go.podman.io/common v0.70.0
 	go.podman.io/image/v5 v5.42.0
+	go.podman.io/storage v1.65.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -99,7 +100,6 @@ require (
 	go.opentelemetry.io/otel v1.46.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
-	go.podman.io/storage v1.65.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/net v0.61.0 // indirect

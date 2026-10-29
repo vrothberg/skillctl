@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -67,13 +66,6 @@ func packageDirectory(ctx context.Context, directory string, output io.Writer) (
 			link, err := root.Readlink(name)
 			if err != nil {
 				return err
-			}
-			target := filepath.FromSlash(link)
-			if filepath.IsAbs(target) || !filepath.IsLocal(filepath.Join(filepath.Dir(name), target)) {
-				return fmt.Errorf("symlink %q escapes the skill directory", name)
-			}
-			if _, err := root.Stat(name); err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("resolving symlink %q within the skill directory: %w", name, err)
 			}
 			header.Linkname = link
 		default:

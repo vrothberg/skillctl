@@ -49,6 +49,8 @@ load helpers
     echo "hidden value" > "$source/.hidden/value"
     echo '.hidden' > "$source/.gitignore"
     ln -s run.sh "$source/link"
+    ln -s /tmp/outside "$source/absolute-link"
+    ln -s ../outside "$source/relative-link"
     ln "$source/run.sh" "$source/hardlink"
     local image="$REGISTRY_HOST/arbitrary-directory:v1"
 
@@ -76,7 +78,7 @@ load helpers
     run_skillctl pull "$reference" --trust none --tls-verify=false
     [[ "$output" == *"Pulled arbitrary-directory"* ]]
     local installed=.agents/skills/arbitrary-directory
-    run diff -r "$source" "$installed"
+    run diff -r --no-dereference "$source" "$installed"
     [ "$status" -eq 0 ]
     [[ "$output" == "" ]]
     [[ "$(stat -c %a "$installed/run.sh")" == "751" ]]
@@ -97,7 +99,7 @@ load helpers
     run_skillctl pull "$image" --tls-verify=false
     [[ "$output" == *"Pulled arbitrary-directory"* ]]
     [[ "$(cat "$installed/.hidden/value")" == "updated" ]]
-    run diff -r "$source" "$installed"
+    run diff -r --no-dereference "$source" "$installed"
     [ "$status" -eq 0 ]
     [[ "$output" == "" ]]
     [[ "$(ls -A "$TMPDIR")" == "" ]]
@@ -246,18 +248,17 @@ EOF
     [ ! -e "$SKILLCTL_STORE" ]
 }
 
-@test "publish rejects missing sources and unsafe entries and cleans staging" {
+@test "publish rejects missing sources and special files and cleans staging" {
     mkdir tmp
     export TMPDIR="$TEST_WORKDIR/tmp"
     run "$SKILLCTL" publish quay.io/team/skill:v1 missing --sign none
     [ "$status" -ne 0 ]
     [[ "$output" == *"opening source directory"* ]]
-    mkdir source
-    ln -s ../outside source/escape
-    run "$SKILLCTL" publish quay.io/team/skill:v1 source --sign none
+    echo file > not-a-directory
+    run "$SKILLCTL" publish quay.io/team/skill:v1 not-a-directory --sign none
     [ "$status" -ne 0 ]
-    [[ "$output" == *"symlink"*"escapes the skill directory"* ]]
-    rm source/escape
+    [[ "$output" == *"opening source directory"* ]]
+    mkdir source
     mkfifo source/pipe
     run "$SKILLCTL" publish quay.io/team/skill:v1 source --sign none
     [ "$status" -ne 0 ]

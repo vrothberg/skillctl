@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/nightlyone/lockfile"
 	"github.com/opencontainers/go-digest"
+	"github.com/vrothberg/skillctl/internal/locking"
 	"github.com/vrothberg/skillctl/internal/manifest"
 	"github.com/vrothberg/skillctl/internal/skillfs"
 	"go.podman.io/common/libimage"
@@ -107,24 +106,7 @@ func (s *Store) Close() error {
 }
 
 func WithLock(storePath string, fn func() error) error {
-	if err := os.MkdirAll(storePath, 0o700); err != nil {
-		return fmt.Errorf("creating store directory: %w", err)
-	}
-
-	lock, err := lockfile.New(filepath.Join(storePath, "skillctl.lock"))
-	if err != nil {
-		return fmt.Errorf("creating lock file: %w", err)
-	}
-
-	for err := lock.TryLock(); err != nil; err = lock.TryLock() {
-		if err != lockfile.ErrBusy {
-			return fmt.Errorf("acquiring lock: %w", err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	defer func() { _ = lock.Unlock() }()
-
-	return fn()
+	return locking.WithLock(filepath.Join(storePath, "skillctl.lock"), fn)
 }
 
 func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error) {
@@ -173,13 +155,15 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 	}
 	defer func() { _ = source.Close() }()
 	if err := skillfs.Install(targetDir, func(root *os.Root) error {
-		directories := map[string]tarMetadata{".": {mode: 0o755}}
 		for _, layer := range artifact.Manifest.Layers {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			blob, _, err := source.GetBlob(ctx, types.BlobInfo{Digest: layer.Digest}, nil)
 			if err != nil {
 				return err
 			}
-			err = unpackLayer(ctx, root, blob, directories)
+			err = untar(blob, root.Name())
 			closeErr := blob.Close()
 			if err != nil {
 				return fmt.Errorf("extracting tar layer %s: %w", layer.Digest, err)
@@ -188,7 +172,7 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 				return closeErr
 			}
 		}
-		return finishDirectories(root, directories)
+		return nil
 	}); err != nil {
 		return fmt.Errorf("installing %q to %q: %w", imageRef, targetDir, err)
 	}

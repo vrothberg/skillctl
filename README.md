@@ -84,7 +84,7 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 
 ## Extracted files and local changes
 
-Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it stages the files before replacing the existing skill directory, removing local edits and files absent from the new version. Installation and removal are confined to the project root; symlinks that escape it are refused.
+Skills are installed into `.agents/skills/<name>/`. When `pull` or `update` extracts a skill, it stages the files before replacing the existing skill directory, removing local edits and files absent from the new version. Installation and removal are confined to the project root. Archive extraction confines writes to the staging directory and preserves symlink targets verbatim.
 Make lasting changes in the skill's source and publish a new version; commit the extracted files in consuming projects for review.
 
 Both commands pull the image and compare its resolved digest with the recorded digest. If the digests match, they skip extraction, even if local files have been changed or deleted.
@@ -110,8 +110,8 @@ publishing. Uploads of artifacts and signatures are not atomic: a registry
 failure can leave partially uploaded content even when publishing fails.
 
 The complete source directory is included, including hidden files and ignore
-files. No ignore rules or skill validation are applied. Entries that cannot
-be safely extracted are rejected. File permissions and internal links are
+files. No ignore rules or skill validation are applied. Publishing accepts
+regular files, directories, and links. File permissions and link targets are
 preserved; ownership and timestamps are normalized. The compressed layer and
 OCI manifest are reproducible for identical input trees.
 
@@ -126,9 +126,8 @@ install the exact published content.
 Each OCI layer must contain a tar archive, optionally compressed with gzip or
 zstd. Archive paths are relative to the skill directory, with `SKILL.md` at
 the root. Layers are extracted in manifest order; later entries replace
-earlier files. Nested directories, executable permissions, and links within
-the skill directory are preserved. Paths and links that escape the skill
-directory, device files, and FIFOs are rejected.
+earlier files. Nested directories, executable permissions, and link targets
+are preserved using containers/storage's `archive.Untar`.
 
 `skillctl publish` packages a source directory as one gzip-compressed tar
 layer. Paths are relative to the directory itself, without a wrapping folder.
