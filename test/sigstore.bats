@@ -97,13 +97,13 @@ load helpers
     # The nonexistent tag must be ignored; the digest selects the signed artifact.
     run_skillctl pull --force --tls-verify=false "$image"
     [[ "$output" =~ "Pulled skill" ]]
-    [ -f .agents/skills/skill/skill.md ]
+    [ -f .agents/skills/skill/SKILL.md ]
     grep -Fq "image: $image" skillctl.yaml
 
-    rm .agents/skills/skill/skill.md
+    rm .agents/skills/skill/SKILL.md
     run_skillctl update --force --tls-verify=false
     [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
-    [ -f .agents/skills/skill/skill.md ]
+    [ -f .agents/skills/skill/SKILL.md ]
     grep -Fq "image: $image" skillctl.yaml
 }
 
@@ -136,7 +136,7 @@ load helpers
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
-    [ -f .agents/skills/skill/skill.md ]
+    [ -f .agents/skills/skill/SKILL.md ]
 
     # The trust declaration is recorded in the manifest
     grep -q "trust:" skillctl.yaml
@@ -181,7 +181,7 @@ load helpers
         "$REGISTRY_HOST/skill:v1"
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
-    [ -f .agents/skills/skill/skill.md ]
+    [ -f .agents/skills/skill/SKILL.md ]
 
     [ ! -f "$SKILLCTL_STORE/policy.json" ]
 }
@@ -204,7 +204,7 @@ load helpers
 
     run_skillctl update --tls-verify=false
     [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
-    [ -f .agents/skills/skill/skill.md ]
+    [ -f .agents/skills/skill/SKILL.md ]
 }
 
 @test "update fails when the manifest pins a key the artifact does not match" {

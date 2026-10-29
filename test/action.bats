@@ -13,7 +13,7 @@ load helpers
     git init -q --bare "$TEST_WORKDIR/remote.git"
     git remote add origin "$TEST_WORKDIR/remote.git"
     git push -qu origin test
-    cp "$EXAMPLE_SKILL_DIR/skill.md" .agents/skills/skill.md
+    cp "$EXAMPLE_SKILL_DIR/SKILL.md" .agents/skills/SKILL.md
     local message='Update $(touch marker) `touch marker2` "quoted"'
     run env SKILLCTL_COMMIT_MESSAGE="$message" bash "$REPO_ROOT/hack/action/commit.sh"
     [ "$status" -eq 0 ]

@@ -2,8 +2,12 @@
 
 load helpers
 
+function setup() {
+    setup_example_registry
+}
+
 @test "pull without init fails without extracting" {
-    run "$SKILLCTL" pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run "$SKILLCTL" pull ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -ne 0 ]
     # Must not leave orphaned files on disk
     [ ! -d .agents/skills ]
@@ -30,7 +34,7 @@ load helpers
 
 @test "pull rejects --name with path traversal" {
     run_skillctl init
-    run "$SKILLCTL" pull --name "../../etc/evil" quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run "$SKILLCTL" pull --name "../../etc/evil" ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -ne 0 ]
     [[ "$output" =~ "path separators" ]]
     [ ! -d "../../etc/evil" ]
@@ -38,7 +42,7 @@ load helpers
 
 @test "pull without --trust fails with guidance" {
     run_skillctl init
-    run "$SKILLCTL" pull quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run "$SKILLCTL" pull ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -ne 0 ]
     [[ "$output" =~ "no trust declared" ]]
     [[ "$output" =~ "--trust key=KEY.pub" ]]
@@ -48,7 +52,7 @@ load helpers
 
 @test "pull rejects invalid --trust value" {
     run_skillctl init
-    run "$SKILLCTL" pull --trust foo=bar quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run "$SKILLCTL" pull --trust foo=bar ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -ne 0 ]
     [[ "$output" =~ "invalid trust" ]]
     [[ "$output" =~ "key=KEY.pub" ]]
@@ -57,12 +61,12 @@ load helpers
 
 @test "pull reuses trust from the manifest when upgrading" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
 
     # Pulling a new version of a tracked skill without --trust reuses the
     # trust declaration recorded in the manifest.
-    run_skillctl pull quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    run_skillctl pull ${EXAMPLE_IMAGE}:v1.0.1
     [[ "$output" =~ "Pulled" ]]
     [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
     grep -q "trust: none" skillctl.yaml
@@ -72,7 +76,7 @@ load helpers
     run_skillctl init
 
     run_skillctl pull --trust none --store "$TEST_WORKDIR/custom-store" \
-        quay.io/vrothberg/skillctl-example-skill:v1.0.0
+        ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
 
     [[ "$output" =~ "Pulled" ]]
@@ -86,44 +90,44 @@ load helpers
 
 @test "pull downloads and extracts a skill" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
 
     # Verify extracted files
-    [ -f .agents/skills/skillctl-example-skill/skill.md ]
+    [ -f .agents/skills/skillctl-example-skill/SKILL.md ]
     [ -f .agents/skills/skillctl-example-skill/counter.txt ]
     [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
 
     # Verify manifest was updated
     grep -q "skillctl-example-skill" skillctl.yaml
-    grep -q "quay.io/vrothberg/skillctl-example-skill:v1.0.0" skillctl.yaml
+    grep -q "${EXAMPLE_IMAGE}:v1.0.0" skillctl.yaml
     grep -q "trust: none" skillctl.yaml
 
     # Verify list shows the pulled skill
     run_skillctl list
     [ "$status" -eq 0 ]
     [[ "$output" =~ "skillctl-example-skill" ]]
-    [[ "$output" =~ "quay.io/vrothberg/skillctl-example-skill:v1.0.0" ]]
+    [[ "$output" =~ "${EXAMPLE_IMAGE}:v1.0.0" ]]
 }
 
 @test "pull skips extraction when digest unchanged" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
 
     # Second pull of the same image should skip extraction
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
     [[ "$output" =~ "is up to date" ]]
 }
 
 @test "pull --force re-extracts even when digest unchanged" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
 
     # Force pull should re-extract
-    run_skillctl pull --force quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --force ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Pulled" ]]
     [[ "$output" != *"is up to date"* ]]
@@ -132,11 +136,11 @@ load helpers
 
 @test "pull upgrades a skill in-place to a new version" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
 
     # Pull a newer version of the same skill (same derived name)
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.1
     [[ "$output" =~ "Pulled" ]]
     [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
 
@@ -150,25 +154,25 @@ load helpers
 
 @test "pull removes stale files from prior version" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
 
     # Simulate a file that existed in v1 but not in v2
     echo "stale" > .agents/skills/skillctl-example-skill/old-helper.txt
     [ -f .agents/skills/skillctl-example-skill/old-helper.txt ]
 
     # Pull a new version; the stale file must be gone
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.1
     [[ "$output" =~ "Pulled" ]]
     [ ! -f .agents/skills/skillctl-example-skill/old-helper.txt ]
-    [ -f .agents/skills/skillctl-example-skill/skill.md ]
+    [ -f .agents/skills/skillctl-example-skill/SKILL.md ]
     [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
 }
 
 @test "pull two versions with --name" {
     run_skillctl init
-    run_skillctl pull --trust none --name skill-v1 quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none --name skill-v1 ${EXAMPLE_IMAGE}:v1.0.0
     [ "$status" -eq 0 ]
-    run_skillctl pull --trust none --name skill-v2 quay.io/vrothberg/skillctl-example-skill:v1.0.1
+    run_skillctl pull --trust none --name skill-v2 ${EXAMPLE_IMAGE}:v1.0.1
     [ "$status" -eq 0 ]
 
     # Both extracted
