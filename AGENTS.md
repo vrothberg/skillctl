@@ -18,7 +18,7 @@ package.
 ```
 action.yml                    Composite GitHub Action wrapping skillctl for CI
 cmd/skillctl/main.go          Entry point
-internal/cli/                  Cobra commands (init, pull, list, update)
+internal/cli/                  Cobra commands (init, pull, publish, list, update, remove)
 internal/manifest/             Manifest read/write/update (skillctl.yaml), trust declarations
 internal/store/                Wraps libartifact.ArtifactStore (pull, extract, trust config synthesis)
 test/                          BATS integration tests
@@ -105,6 +105,12 @@ store is open and check their removal after Close. See
 The OCI Image Layout store lives at `~/.local/share/skillctl/store/`. This is
 an implementation detail; the user-facing artifacts are `skillctl.yaml` and the
 extracted files in `./.agents/skills/`.
+
+Publishing uses a private temporary OCI store, removed when the operation
+finishes. It does not touch the consumer store or manifest. Packaging sorts
+entries and normalizes ownership, tar/gzip timestamps, and OCI metadata so
+identical input trees produce identical artifact digests. Tests cover
+reproducibility, signed and unsigned publishing, and verified pull round trips.
 
 ### Renovate integration
 

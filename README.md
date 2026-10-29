@@ -76,6 +76,7 @@ Agents that scan `.agents/skills/`, such as OpenAI Codex and opencode, pick up s
 |---------|-------------|
 | `skillctl init` | Create `skillctl.yaml` and `.agents/skills/` in the current directory |
 | `skillctl pull --trust ... IMAGE` | Pull a skill from an OCI registry, extract it, and update the manifest |
+| `skillctl publish IMAGE DIRECTORY --sign ...` | Package a directory and publish it to an OCI registry |
 | `skillctl update` | Pull and extract all skills listed in the manifest |
 | `skillctl remove NAME` | Remove a skill from the manifest and delete its extracted files |
 | `skillctl list` | List skills tracked in the manifest |
@@ -89,6 +90,37 @@ Make lasting changes in the skill's source and publish a new version; commit the
 Both commands pull the image and compare its resolved digest with the recorded digest. If the digests match, they skip extraction, even if local files have been changed or deleted.
 Use `skillctl pull --force IMAGE` or `skillctl update --force` to restore files from the artifact even when the digest is unchanged.
 
+## Publishing skills
+
+Both the tagged image reference and source directory are required:
+
+```console
+$ skillctl publish quay.io/team/my-skill:v1 ./my-skill \
+    --sign key=publisher.key --sign passphrase-file=publisher.pass
+Published quay.io/team/my-skill:v1
+Digest: sha256:...
+Reference: quay.io/team/my-skill:v1@sha256:...
+```
+
+Use `--sign none` to publish unsigned. Signing supports sigstore/cosign keys
+and unencrypted PKCS#8 private keys. Supply `--sign passphrase-file=FILE` for
+keys with a nonempty passphrase; publishing never prompts. Signing keys are
+loaded before uploading, and signing failures never fall back to unsigned
+publishing. Uploads of artifacts and signatures are not atomic: a registry
+failure can leave partially uploaded content even when publishing fails.
+
+The complete source directory is included, including hidden files and ignore
+files. No ignore rules or skill validation are applied. Entries that cannot
+be safely extracted are rejected. File permissions and internal links are
+preserved; ownership and timestamps are normalized. The compressed layer and
+OCI manifest are reproducible for identical input trees.
+
+Publishing replaces existing tags, stages files privately, and leaves
+`skillctl.yaml` and installed skills unchanged. It uses the usual container
+registry credentials, such as those configured by `podman login`.
+Pass the printed `Reference` directly to `skillctl pull --trust ...` to
+install the exact published content.
+
 ## Artifact format
 
 Each OCI layer must contain a tar archive, optionally compressed with gzip or
@@ -98,15 +130,8 @@ earlier files. Nested directories, executable permissions, and links within
 the skill directory are preserved. Paths and links that escape the skill
 directory, device files, and FIFOs are rejected.
 
-Built-in support for building skill OCI artifacts is planned for skillctl.
-For now, package a skill directory as one layer with tar and Podman:
-
-```bash
-tar -czf /tmp/skill.tar.gz -C path/to/skill .
-podman artifact add --file-type application/vnd.oci.image.layer.v1.tar+gzip \
-    registry.example.com/team/skill:1.0 /tmp/skill.tar.gz
-podman artifact push registry.example.com/team/skill:1.0
-```
+`skillctl publish` packages a source directory as one gzip-compressed tar
+layer. Paths are relative to the directory itself, without a wrapping folder.
 
 ## Manifest format
 

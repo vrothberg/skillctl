@@ -5,6 +5,8 @@ go 1.26.0
 require (
 	github.com/nightlyone/lockfile v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.1.1
+	github.com/secure-systems-lab/go-securesystemslib v0.11.1
 	github.com/spf13/cobra v1.10.2
 	go.podman.io/common v0.70.0
 	go.podman.io/image/v5 v5.42.0
@@ -73,12 +75,10 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/opencontainers/cgroups v0.1.0 // indirect
-	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/opencontainers/selinux v1.15.1 // indirect
 	github.com/proglottis/gpgme v0.1.6 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
-	github.com/secure-systems-lab/go-securesystemslib v0.11.1 // indirect
 	github.com/sigstore/fulcio v1.8.8 // indirect
 	github.com/sigstore/protobuf-specs v0.5.2 // indirect
 	github.com/sigstore/sigstore v1.10.11 // indirect
