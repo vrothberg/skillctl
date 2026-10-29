@@ -38,7 +38,7 @@ load helpers
     [[ "$output" == *'invalid --sign option "unknown"'* ]]
 }
 
-@test "publish unsigned directory without skill metadata preserves every file" {
+@test "unsigned publishing enforces TLS preserves all files and replaces existing tags" {
     start_registry
     local source="$TEST_WORKDIR/source"
     mkdir -p "$source/.hidden/empty" "$TEST_WORKDIR/tmp"
@@ -51,6 +51,15 @@ load helpers
     ln -s run.sh "$source/link"
     ln "$source/run.sh" "$source/hardlink"
     local image="$REGISTRY_HOST/arbitrary-directory:v1"
+
+    # An untrusted registry must fail before the explicit TLS opt-out.
+    run "$SKILLCTL" publish "$image" "$source" --sign none
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"publishing"*"may have been partially uploaded"* ]]
+    [[ "$output" == *"x509"* ]]
+    [[ "$output" != *"Published "* ]]
+    [[ "$(ls -A "$TMPDIR")" == "" ]]
+
     run_skillctl publish "$image" "$source" --sign none --tls-verify=false
     [[ "$output" == *"Published $image"* ]]
     [[ "$output" == *"Digest: sha256:"* ]]
@@ -75,6 +84,23 @@ load helpers
     run "$installed/link"
     [ "$status" -eq 0 ]
     [[ "$output" == "published" ]]
+
+    # Republishing the same tag requires no force flag and changes the
+    # registry content consumed by a subsequent pull.
+    echo updated > "$source/.hidden/value"
+    run_skillctl publish "$image" "$source" --sign none --tls-verify=false
+    [[ "$output" == *"Published $image"* ]]
+    local replaced_reference
+    replaced_reference=$(printf '%s\n' "$output" | sed -n 's/^Reference: //p')
+    [[ "$replaced_reference" == "$image@sha256:"* ]]
+    [[ "$replaced_reference" != "$reference" ]]
+    run_skillctl pull "$image" --tls-verify=false
+    [[ "$output" == *"Pulled arbitrary-directory"* ]]
+    [[ "$(cat "$installed/.hidden/value")" == "updated" ]]
+    run diff -r "$source" "$installed"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "" ]]
+    [[ "$(ls -A "$TMPDIR")" == "" ]]
 }
 
 @test "publish signs an artifact verified by skopeo and skillctl" {
@@ -195,37 +221,6 @@ EOF
     run diff -r "$EXAMPLE_SKILL_DIR" .agents/skills/skillctl-example-skill
     [ "$status" -eq 0 ]
     [[ "$output" == "" ]]
-}
-
-@test "publish reports upload failures and removes private staging" {
-    start_registry
-    mkdir tmp
-    export TMPDIR="$TEST_WORKDIR/tmp"
-    run "$SKILLCTL" publish "$REGISTRY_HOST/skill:v1" "$EXAMPLE_SKILL_DIR" --sign none
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"publishing"*"may have been partially uploaded"* ]]
-    [[ "$output" == *"x509"* ]]
-    [[ "$output" != *"Published "* ]]
-    [[ "$(ls -A "$TMPDIR")" == "" ]]
-}
-
-@test "publish replaces an existing tag without force" {
-    start_registry
-    mkdir source
-    echo 1 > source/counter.txt
-    local image="$REGISTRY_HOST/skill:v1"
-    run_skillctl publish "$image" source --sign none --tls-verify=false
-    [[ "$output" == *"Published $image"* ]]
-    local first="$output"
-    echo 2 > source/counter.txt
-    run_skillctl publish "$image" source --sign none --tls-verify=false
-    [[ "$output" == *"Published $image"* ]]
-    [[ "$output" != "$first" ]]
-    run_skillctl init
-    [[ "$output" == *"Initialized skillctl project"* ]]
-    run_skillctl pull "$image" --trust none --tls-verify=false
-    [[ "$output" == *"Pulled skill"* ]]
-    [[ "$(cat .agents/skills/skill/counter.txt)" == "2" ]]
 }
 
 @test "publish rejects bad signing inputs before uploading without prompting" {

@@ -2,114 +2,94 @@
 
 load helpers
 
-function setup() {
-    setup_example_registry
-}
-
-@test "update without init fails" {
+@test "update validates its project arguments and manifest trust before pulling" {
     run "$SKILLCTL" update
     [ "$status" -ne 0 ]
-}
-
-@test "update with empty manifest succeeds" {
-    run_skillctl init
-    run_skillctl update
-    [[ "$output" == *"No skills in manifest"* ]]
-}
-
-@test "update takes no arguments" {
+    [[ "$output" == *"skillctl init"* ]]
     run "$SKILLCTL" update foo
     [ "$status" -ne 0 ]
-}
-
-@test "update fails when a skill has no trust declaration" {
+    [[ "$output" == *'unknown command "foo" for "skillctl update"'* ]]
     run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl update
+    [[ "$output" == "No skills in manifest" ]]
 
-    # Simulate a legacy manifest without a trust declaration
-    sed -i'' -e '/trust:/d' skillctl.yaml
-
+    # No registry is needed to reject a legacy entry without trust.
+    cat > skillctl.yaml <<EOF
+apiVersion: v1
+skills:
+    - name: legacy
+      image: quay.io/example/skill:v1
+      extractPath: .agents/skills/legacy
+EOF
+    mkdir .agents/skills/legacy
+    echo 'local contents' > .agents/skills/legacy/counter.txt
+    local before
+    before=$(cat skillctl.yaml)
     run "$SKILLCTL" update
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "no trust declaration" ]]
-
-    # Nothing must have been pulled or extracted
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
+    [[ "$output" == *"no trust declaration"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+    [[ "$(cat .agents/skills/legacy/counter.txt)" == "local contents" ]]
+    [ ! -e "$SKILLCTL_STORE" ]
 }
 
-@test "update skips skills with unchanged digest" {
+@test "update skips unchanged skills and restores both forced and changed digests" {
+    start_example_registry
     run_skillctl init
-    run_skillctl pull --trust none --name skill-v1 ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --name skill-v1 "$EXAMPLE_IMAGE:v1.0.0"
+    [[ "$output" == *"Pulled skill-v1"* ]]
+    run_skillctl pull --trust none --name skill-v2 "$EXAMPLE_IMAGE:v1.0.1"
+    [[ "$output" == *"Pulled skill-v2"* ]]
+    local before
+    before=$(cat skillctl.yaml)
+    echo local > .agents/skills/skill-v1/counter.txt
+    echo local > .agents/skills/skill-v2/counter.txt
 
     run_skillctl update
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "is up to date" ]]
-    [[ "$output" =~ "Updated 0 of 1 skill(s)" ]]
-}
-
-@test "update --force re-extracts even when digests match" {
-    run_skillctl init
-    run_skillctl pull --trust none --name skill-v1 ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
+    [[ "$output" == *"skill-v1 is up to date"* ]]
+    [[ "$output" == *"skill-v2 is up to date"* ]]
+    [[ "$output" == *"Updated 0 of 2 skill(s)"* ]]
+    [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "local" ]]
+    [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "local" ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
 
     run_skillctl update --force
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
-    [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "1" ]]
-}
-
-@test "update re-extracts skills with changed digest" {
-    run_skillctl init
-    run_skillctl pull --trust none --name skill-v1 ${EXAMPLE_IMAGE}:v1.0.0
-    run_skillctl pull --trust none --name skill-v2 ${EXAMPLE_IMAGE}:v1.0.1
-    [ "$status" -eq 0 ]
-
-    # Tamper with a digest to simulate Renovate bumping a version
-    sed -i'' -e 's/digest: sha256:.*/digest: sha256:0000000000000000000000000000000000000000000000000000000000000000/' skillctl.yaml
-
-    run_skillctl update
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Updated 2 of 2 skill(s)" ]]
-
-    # Verify files are still correct
+    [[ "$output" == *"Updated 2 of 2 skill(s)"* ]]
     [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "1" ]]
     [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "2" ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+
+    sed -i 's/digest: sha256:.*/digest: sha256:0000000000000000000000000000000000000000000000000000000000000000/' skillctl.yaml
+    echo local > .agents/skills/skill-v1/counter.txt
+    echo local > .agents/skills/skill-v2/counter.txt
+    run_skillctl update
+    [[ "$output" == *"Updated 2 of 2 skill(s)"* ]]
+    [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "1" ]]
+    [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "2" ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
 }
 
-@test "update removes stale files from prior version" {
+@test "update follows Renovate tag changes and removes stale files" {
+    start_example_registry
     run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-
-    # Simulate a file that existed in v1 but not in v2
-    echo "stale" > .agents/skills/skillctl-example-skill/old-helper.txt
-    [ -f .agents/skills/skillctl-example-skill/old-helper.txt ]
-
-    # Simulate Renovate bumping the tag
-    sed -i'' -e 's|skillctl-example-skill:v1.0.0|skillctl-example-skill:v1.0.1|' skillctl.yaml
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none "$EXAMPLE_IMAGE:v1.0.0"
+    [[ "$output" == *"Pulled skillctl-example-skill"* ]]
+    local installed=.agents/skills/skillctl-example-skill
+    [[ "$(cat "$installed/counter.txt")" == "1" ]]
+    local digest
+    digest=$(awk '/digest:/ {print $2}' skillctl.yaml)
+    echo stale > "$installed/old-helper.txt"
+    sed -i 's/:v1.0.0/:v1.0.1/' skillctl.yaml
 
     run_skillctl update
-    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
-    [ ! -f .agents/skills/skillctl-example-skill/old-helper.txt ]
-    [ -f .agents/skills/skillctl-example-skill/SKILL.md ]
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
-}
-
-@test "update handles image tag change (Renovate workflow)" {
-    run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
-
-    # Simulate Renovate bumping the tag in the manifest
-    sed -i'' -e 's|skillctl-example-skill:v1.0.0|skillctl-example-skill:v1.0.1|' skillctl.yaml
-
-    run_skillctl update
-    [[ "$output" =~ "Updated 1 of 1 skill(s)" ]]
-
-    # Verify files reflect the new version
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
-
-    # Verify manifest has the new image reference
-    grep -q "v1.0.1" skillctl.yaml
+    [[ "$output" == *"Updated 1 of 1 skill(s)"* ]]
+    [[ "$(cat "$installed/counter.txt")" == "2" ]]
+    [ -f "$installed/SKILL.md" ]
+    [ ! -e "$installed/old-helper.txt" ]
+    grep -Fq "image: $EXAMPLE_IMAGE:v1.0.1" skillctl.yaml
+    grep -q 'trust: none' skillctl.yaml
+    [[ "$(awk '/digest:/ {print $2}' skillctl.yaml)" != "$digest" ]]
 }

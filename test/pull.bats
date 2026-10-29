@@ -2,190 +2,99 @@
 
 load helpers
 
-function setup() {
-    setup_example_registry
-}
-
-@test "pull without init fails without extracting" {
-    run "$SKILLCTL" pull ${EXAMPLE_IMAGE}:v1.0.0
+@test "pull validates project arguments names and trust before accessing a registry" {
+    local image=quay.io/example/skill:v1
+    run "$SKILLCTL" pull "$image"
     [ "$status" -ne 0 ]
-    # Must not leave orphaned files on disk
+    [[ "$output" == *"skillctl init"* ]]
     [ ! -d .agents/skills ]
-}
-
-@test "pull requires an argument" {
     run "$SKILLCTL" pull
     [ "$status" -ne 0 ]
-}
+    [[ "$output" == *"accepts 1 arg(s), received 0"* ]]
 
-@test "pull rejects invalid image reference" {
     run_skillctl init
-    run "$SKILLCTL" pull --trust none ":::invalid:::"
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run "$SKILLCTL" pull --trust none ':::invalid:::'
     [ "$status" -ne 0 ]
-}
-
-@test "pull accepts --name flag" {
-    run_skillctl init
-    run "$SKILLCTL" pull --trust none --name custom-name ":::invalid:::"
-    # It should fail on the image ref, not the flag
+    [[ "$output" == *"parsing image reference"* ]]
+    run "$SKILLCTL" pull --trust none --name custom-name ':::invalid:::'
     [ "$status" -ne 0 ]
-    [[ "$output" != *"unknown flag"* ]]
-}
-
-@test "pull rejects --name with path traversal" {
-    run_skillctl init
-    run "$SKILLCTL" pull --name "../../etc/evil" ${EXAMPLE_IMAGE}:v1.0.0
+    [[ "$output" == *"parsing image reference"* ]]
+    run "$SKILLCTL" pull --name ../../etc/evil "$image"
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "path separators" ]]
-    [ ! -d "../../etc/evil" ]
-}
-
-@test "pull without --trust fails with guidance" {
-    run_skillctl init
-    run "$SKILLCTL" pull ${EXAMPLE_IMAGE}:v1.0.0
+    [[ "$output" == *"path separators"* ]]
+    [ ! -d ../../etc/evil ]
+    run "$SKILLCTL" pull "$image"
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "no trust declared" ]]
-    [[ "$output" =~ "--trust key=KEY.pub" ]]
-    [[ "$output" =~ "--trust none" ]]
-    [ ! -d .agents/skills/skillctl-example-skill ]
-}
-
-@test "pull rejects invalid --trust value" {
-    run_skillctl init
-    run "$SKILLCTL" pull --trust foo=bar ${EXAMPLE_IMAGE}:v1.0.0
+    [[ "$output" == *"no trust declared"* ]]
+    [[ "$output" == *"--trust key=KEY.pub"* ]]
+    [[ "$output" == *"--trust none"* ]]
+    run "$SKILLCTL" pull --trust foo=bar "$image"
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "invalid trust" ]]
-    [[ "$output" =~ "key=KEY.pub" ]]
-    [ ! -d .agents/skills/skillctl-example-skill ]
+    [[ "$output" == *"invalid trust"*"key=KEY.pub"* ]]
+    [[ "$(ls -A .agents/skills)" == "" ]]
+    [ ! -e "$SKILLCTL_STORE" ]
 }
 
-@test "pull reuses trust from the manifest when upgrading" {
+@test "pull installs lists skips unchanged files and force restores using an explicit store" {
+    start_example_registry
     run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    local image="$EXAMPLE_IMAGE:v1.0.0"
+    local custom_store="$TEST_WORKDIR/custom-store"
+    local installed=.agents/skills/skillctl-example-skill
+    run_skillctl pull --trust none --store "$custom_store" "$image"
+    [[ "$output" == *"Pulled skillctl-example-skill"* ]]
+    [[ "$output" == *"Extracted to $installed"* ]]
+    [ -f "$custom_store/index.json" ]
+    [ ! -e "$SKILLCTL_STORE/index.json" ]
+    grep -Fq "image: $image" skillctl.yaml
+    grep -q 'trust: none' skillctl.yaml
+    run diff -r "$EXAMPLE_SKILL_DIR" "$installed"
     [ "$status" -eq 0 ]
-
-    # Pulling a new version of a tracked skill without --trust reuses the
-    # trust declaration recorded in the manifest.
-    run_skillctl pull ${EXAMPLE_IMAGE}:v1.0.1
-    [[ "$output" =~ "Pulled" ]]
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
-    grep -q "trust: none" skillctl.yaml
-}
-
-@test "pull --store overrides the store location" {
-    run_skillctl init
-
-    run_skillctl pull --trust none --store "$TEST_WORKDIR/custom-store" \
-        ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-
-    [[ "$output" =~ "Pulled" ]]
-    # Artifacts live in the flag-provided store; trust files are private
-    # to the operation and cleaned up when it finishes.
-    [ -f "$TEST_WORKDIR/custom-store/index.json" ]
-
-    # ... not in the one from SKILLCTL_STORE.
-    [ ! -f "$SKILLCTL_STORE/index.json" ]
-}
-
-@test "pull downloads and extracts a skill" {
-    run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-
-    # Verify extracted files
-    [ -f .agents/skills/skillctl-example-skill/SKILL.md ]
-    [ -f .agents/skills/skillctl-example-skill/counter.txt ]
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
-
-    # Verify manifest was updated
-    grep -q "skillctl-example-skill" skillctl.yaml
-    grep -q "${EXAMPLE_IMAGE}:v1.0.0" skillctl.yaml
-    grep -q "trust: none" skillctl.yaml
-
-    # Verify list shows the pulled skill
+    [[ "$output" == "" ]]
     run_skillctl list
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "skillctl-example-skill" ]]
-    [[ "$output" =~ "${EXAMPLE_IMAGE}:v1.0.0" ]]
-}
+    [[ "$output" == *"skillctl-example-skill"*"$image"* ]]
+    local before
+    before=$(cat skillctl.yaml)
 
-@test "pull skips extraction when digest unchanged" {
-    run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
+    echo 'local edit' > "$installed/counter.txt"
+    run_skillctl pull --trust none --store "$custom_store" "$image"
+    [[ "$output" == *"is up to date"* ]]
+    [[ "$(cat "$installed/counter.txt")" == "local edit" ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
 
-    # Second pull of the same image should skip extraction
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "is up to date" ]]
-}
-
-@test "pull --force re-extracts even when digest unchanged" {
-    run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-
-    # Force pull should re-extract
-    run_skillctl pull --force ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Pulled" ]]
+    run_skillctl pull --force --store "$custom_store" "$image"
+    [[ "$output" == *"Pulled skillctl-example-skill"* ]]
     [[ "$output" != *"is up to date"* ]]
-    [ -f .agents/skills/skillctl-example-skill/counter.txt ]
+    run diff -r "$EXAMPLE_SKILL_DIR" "$installed"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "" ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
 }
 
-@test "pull upgrades a skill in-place to a new version" {
+@test "pull upgrades in place reuses trust and removes stale files" {
+    start_example_registry
     run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "1" ]]
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none "$EXAMPLE_IMAGE:v1.0.0"
+    [[ "$output" == *"Pulled skillctl-example-skill"* ]]
+    local installed=.agents/skills/skillctl-example-skill
+    [[ "$(cat "$installed/counter.txt")" == "1" ]]
+    local digest
+    digest=$(awk '/digest:/ {print $2}' skillctl.yaml)
+    echo stale > "$installed/old-helper.txt"
 
-    # Pull a newer version of the same skill (same derived name)
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.1
-    [[ "$output" =~ "Pulled" ]]
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
-
-    # Manifest should have exactly one entry pointing to the new version
-    grep -q "v1.0.1" skillctl.yaml
+    run_skillctl pull "$EXAMPLE_IMAGE:v1.0.1"
+    [[ "$output" == *"Pulled skillctl-example-skill"* ]]
+    [[ "$(cat "$installed/counter.txt")" == "2" ]]
+    [ ! -e "$installed/old-helper.txt" ]
+    [ -f "$installed/SKILL.md" ]
+    grep -Fq "image: $EXAMPLE_IMAGE:v1.0.1" skillctl.yaml
+    grep -q 'trust: none' skillctl.yaml
+    [[ "$(awk '/digest:/ {print $2}' skillctl.yaml)" != "$digest" ]]
+    [[ "$(grep -c 'name:' skillctl.yaml)" == "1" ]]
     run_skillctl list
-    local count
-    count=$(echo "$output" | grep -c "skillctl-example-skill")
-    [ "$count" -eq 1 ]
-}
-
-@test "pull removes stale files from prior version" {
-    run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-
-    # Simulate a file that existed in v1 but not in v2
-    echo "stale" > .agents/skills/skillctl-example-skill/old-helper.txt
-    [ -f .agents/skills/skillctl-example-skill/old-helper.txt ]
-
-    # Pull a new version; the stale file must be gone
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.1
-    [[ "$output" =~ "Pulled" ]]
-    [ ! -f .agents/skills/skillctl-example-skill/old-helper.txt ]
-    [ -f .agents/skills/skillctl-example-skill/SKILL.md ]
-    [[ "$(cat .agents/skills/skillctl-example-skill/counter.txt)" == "2" ]]
-}
-
-@test "pull two versions with --name" {
-    run_skillctl init
-    run_skillctl pull --trust none --name skill-v1 ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-    run_skillctl pull --trust none --name skill-v2 ${EXAMPLE_IMAGE}:v1.0.1
-    [ "$status" -eq 0 ]
-
-    # Both extracted
-    [ -f .agents/skills/skill-v1/counter.txt ]
-    [ -f .agents/skills/skill-v2/counter.txt ]
-
-    # Different content
-    [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "1" ]]
-    [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "2" ]]
-
-    # Verify list shows both skills
-    run_skillctl list
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "skill-v1" ]]
-    [[ "$output" =~ "skill-v2" ]]
+    [[ "$output" == *"$EXAMPLE_IMAGE:v1.0.1"* ]]
+    [[ "$(printf '%s\n' "$output" | grep -c skillctl-example-skill)" == "1" ]]
 }

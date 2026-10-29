@@ -20,7 +20,7 @@ test-unit:
 
 .PHONY: test-integration
 test-integration: build
-	bats test/*.bats
+	bats --timing test/*.bats
 
 .PHONY: test
 test: test-unit test-integration

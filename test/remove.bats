@@ -2,77 +2,55 @@
 
 load helpers
 
-function setup() {
-    setup_example_registry
-}
-
-@test "remove without init fails" {
+@test "remove requires a project and name and makes force explicit for missing skills" {
     run "$SKILLCTL" remove foo
     [ "$status" -ne 0 ]
-}
-
-@test "remove requires an argument" {
+    [[ "$output" == *"skillctl init"* ]]
     run "$SKILLCTL" remove
     [ "$status" -ne 0 ]
-}
-
-@test "remove nonexistent skill fails" {
+    [[ "$output" == *"accepts 1 arg(s), received 0"* ]]
     run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    local before
+    before=$(cat skillctl.yaml)
     run "$SKILLCTL" remove nonexistent
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "not found" ]]
-}
-
-@test "remove --force succeeds for nonexistent skill" {
-    run_skillctl init
+    [[ "$output" == *'skill "nonexistent" not found in manifest'* ]]
     run_skillctl remove --force nonexistent
-    [ "$status" -eq 0 ]
+    [[ "$output" == "" ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
 }
 
-@test "remove deletes extracted files and manifest entry" {
+@test "named skill versions list independently and remove and rm delete only their own files" {
+    start_example_registry
     run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-    [ -f .agents/skills/skillctl-example-skill/SKILL.md ]
-
-    run_skillctl remove skillctl-example-skill
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Removed skillctl-example-skill" ]]
-
-    # Extracted files gone
-    [ ! -d .agents/skills/skillctl-example-skill ]
-
-    # Manifest entry gone
-    ! grep -q "skillctl-example-skill" skillctl.yaml
-
-    # List confirms removal
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --name skill-v1 "$EXAMPLE_IMAGE:v1.0.0"
+    [[ "$output" == *"Pulled skill-v1"* ]]
+    run_skillctl pull --trust none --name skill-v2 "$EXAMPLE_IMAGE:v1.0.1"
+    [[ "$output" == *"Pulled skill-v2"* ]]
+    [[ "$(cat .agents/skills/skill-v1/counter.txt)" == "1" ]]
+    [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "2" ]]
     run_skillctl list
-    [[ "$output" =~ "No skills tracked" ]]
-}
-
-@test "rm alias works" {
-    run_skillctl init
-    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
-    [ "$status" -eq 0 ]
-
-    run_skillctl rm skillctl-example-skill
-    [ "$status" -eq 0 ]
-    [ ! -d .agents/skills/skillctl-example-skill ]
-}
-
-@test "remove one skill leaves others intact" {
-    run_skillctl init
-    run_skillctl pull --trust none --name skill-v1 ${EXAMPLE_IMAGE}:v1.0.0
-    run_skillctl pull --trust none --name skill-v2 ${EXAMPLE_IMAGE}:v1.0.1
-    [ "$status" -eq 0 ]
+    [[ "$output" == *"skill-v1"*"$EXAMPLE_IMAGE:v1.0.0"* ]]
+    [[ "$output" == *"skill-v2"*"$EXAMPLE_IMAGE:v1.0.1"* ]]
 
     run_skillctl remove skill-v1
-    [ "$status" -eq 0 ]
-
+    [[ "$output" == "Removed skill-v1" ]]
     [ ! -d .agents/skills/skill-v1 ]
-    [ -f .agents/skills/skill-v2/counter.txt ]
-
+    [ -f .agents/skills/skill-v2/SKILL.md ]
+    [[ "$(cat .agents/skills/skill-v2/counter.txt)" == "2" ]]
+    ! grep -q 'name: skill-v1' skillctl.yaml
+    grep -q 'name: skill-v2' skillctl.yaml
     run_skillctl list
     [[ "$output" != *"skill-v1"* ]]
-    [[ "$output" =~ "skill-v2" ]]
+    [[ "$output" == *"skill-v2"* ]]
+
+    run_skillctl rm skill-v2
+    [[ "$output" == "Removed skill-v2" ]]
+    [ ! -d .agents/skills/skill-v2 ]
+    [ -d .agents/skills ]
+    ! grep -q 'name:' skillctl.yaml
+    run_skillctl list
+    [[ "$output" == *"No skills tracked"* ]]
 }
