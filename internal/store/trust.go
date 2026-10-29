@@ -8,7 +8,6 @@ import (
 
 	"github.com/vrothberg/skillctl/internal/manifest"
 	"go.podman.io/image/v5/docker/reference"
-	"gopkg.in/yaml.v3"
 )
 
 // writeTrustConfig generates the signature policy and registries.d
@@ -75,32 +74,7 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 		}
 	}
 
-	if err := os.MkdirAll(storePath, 0o700); err != nil {
-		return "", "", fmt.Errorf("creating store directory: %w", err)
-	}
-
-	policyJSON, err := json.MarshalIndent(policy, "", "    ")
-	if err != nil {
-		return "", "", fmt.Errorf("marshaling policy: %w", err)
-	}
-	policyPath := filepath.Join(storePath, "policy.json")
-	if err := os.WriteFile(policyPath, policyJSON, 0o644); err != nil {
-		return "", "", fmt.Errorf("writing policy.json: %w", err)
-	}
-
-	registriesYAML, err := yaml.Marshal(registries)
-	if err != nil {
-		return "", "", fmt.Errorf("marshaling registries.d: %w", err)
-	}
-	registriesDir := filepath.Join(storePath, "registries.d")
-	if err := os.MkdirAll(registriesDir, 0o700); err != nil {
-		return "", "", fmt.Errorf("creating registries.d directory: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(registriesDir, "skillctl.yaml"), registriesYAML, 0o644); err != nil {
-		return "", "", fmt.Errorf("writing registries.d: %w", err)
-	}
-
-	return policyPath, registriesDir, nil
+	return writeVerificationConfig(storePath, policy, registries)
 }
 
 // repoScope returns the policy namespace of an image reference: its
@@ -125,20 +99,4 @@ func resolveKeyPath(key, manifestDir string) (string, error) {
 		return "", fmt.Errorf("resolving trust key path %q: %w", key, err)
 	}
 	return abs, nil
-}
-
-// policyConfig mirrors the containers/image policy.json format. Map keys
-// sort deterministically in the encoded JSON.
-type policyConfig struct {
-	Default    []json.RawMessage                       `json:"default"`
-	Transports map[string]map[string][]json.RawMessage `json:"transports"`
-}
-
-// registriesConfig and registryNamespace mirror the registries.d format.
-type registriesConfig struct {
-	Docker map[string]registryNamespace `yaml:"docker"`
-}
-
-type registryNamespace struct {
-	UseSigstoreAttachments *bool `yaml:"use-sigstore-attachments,omitempty"`
 }

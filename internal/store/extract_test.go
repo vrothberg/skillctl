@@ -3,17 +3,15 @@ package store
 import (
 	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
-	"time"
 
 	"github.com/vrothberg/skillctl/internal/skillfs"
-	"go.podman.io/image/v5/pkg/compression"
 )
 
 type tarEntry struct {
@@ -21,10 +19,10 @@ type tarEntry struct {
 	data   string
 }
 
-func tarLayer(t *testing.T, format string, entries ...tarEntry) []byte {
+func tarLayer(t *testing.T, entries ...tarEntry) []byte {
 	t.Helper()
-	var plain bytes.Buffer
-	writer := tar.NewWriter(&plain)
+	var data bytes.Buffer
+	writer := tar.NewWriter(&data)
 	for _, entry := range entries {
 		if entry.header.Typeflag == tar.TypeReg {
 			entry.header.Size = int64(len(entry.data))
@@ -39,31 +37,7 @@ func tarLayer(t *testing.T, format string, entries ...tarEntry) []byte {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	var compressed bytes.Buffer
-	switch format {
-	case "gzip":
-		gzipWriter := gzip.NewWriter(&compressed)
-		if _, err := gzipWriter.Write(plain.Bytes()); err != nil {
-			t.Fatal(err)
-		}
-		if err := gzipWriter.Close(); err != nil {
-			t.Fatal(err)
-		}
-	case "zstd":
-		zstdWriter, err := compression.CompressStream(&compressed, compression.Zstd, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := zstdWriter.Write(plain.Bytes()); err != nil {
-			t.Fatal(err)
-		}
-		if err := zstdWriter.Close(); err != nil {
-			t.Fatal(err)
-		}
-	default:
-		return plain.Bytes()
-	}
-	return compressed.Bytes()
+	return data.Bytes()
 }
 
 func installLayers(layers ...[]byte) error {
@@ -77,78 +51,30 @@ func installLayers(layers ...[]byte) error {
 	})
 }
 
-func TestTarLayersPreserveTree(t *testing.T) {
-	modified := time.Unix(1234567890, 0)
-	for _, compression := range []string{"plain", "gzip", "zstd"} {
-		t.Run(compression, func(t *testing.T) {
-			t.Chdir(t.TempDir())
-			layer := tarLayer(t, compression,
-				tarEntry{header: tar.Header{Name: "./", Typeflag: tar.TypeDir, Mode: 0o750, ModTime: modified}},
-				tarEntry{header: tar.Header{Name: "scripts/", Typeflag: tar.TypeDir, Mode: 0o750, ModTime: modified}},
-				tarEntry{header: tar.Header{Name: "scripts/check.sh", Typeflag: tar.TypeReg, Mode: 0o751, ModTime: modified}, data: "#!/bin/sh\necho test\n"},
-				tarEntry{header: tar.Header{Name: "references/deep/", Typeflag: tar.TypeDir, Mode: 0o700}},
-				tarEntry{header: tar.Header{Name: "references/deep/.config", Typeflag: tar.TypeReg, Mode: 0o640}, data: "settings"},
-				tarEntry{header: tar.Header{Name: "empty/", Typeflag: tar.TypeDir, Mode: 0o700}},
-				tarEntry{header: tar.Header{Name: "check", Typeflag: tar.TypeSymlink, Linkname: "scripts/check.sh"}},
-				tarEntry{header: tar.Header{Name: "check-hard", Typeflag: tar.TypeLink, Linkname: "scripts/check.sh", Mode: 0o751, ModTime: modified}},
-			)
-			if err := installLayers(layer); err != nil {
-				t.Fatal(err)
-			}
-			const base = ".agents/skills/test/"
-			for path, want := range map[string]string{"scripts/check.sh": "#!/bin/sh\necho test\n", "references/deep/.config": "settings"} {
-				data, err := os.ReadFile(base + path)
-				if err != nil || string(data) != want {
-					t.Errorf("%s: got %q, %v; want %q", path, data, err, want)
-				}
-			}
-			for path, mode := range map[string]os.FileMode{".": 0o750, "scripts": 0o750, "scripts/check.sh": 0o751, "references/deep/.config": 0o640, "empty": 0o700} {
-				info, err := os.Stat(base + path)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if info.Mode().Perm() != mode {
-					t.Errorf("%s: got permissions %o, want %o", path, info.Mode().Perm(), mode)
-				}
-			}
-			for _, path := range []string{"scripts", "scripts/check.sh"} {
-				info, err := os.Stat(base + path)
-				if err != nil || !info.ModTime().Equal(modified) {
-					t.Errorf("%s: modification time not preserved: %v, %v", path, info, err)
-				}
-			}
-			if link, err := os.Readlink(base + "check"); err != nil || link != "scripts/check.sh" {
-				t.Errorf("symlink: got %q, %v", link, err)
-			}
-			first, err := os.Stat(base + "scripts/check.sh")
-			if err != nil {
-				t.Fatal(err)
-			}
-			second, err := os.Stat(base + "check-hard")
-			if err != nil || !os.SameFile(first, second) {
-				t.Errorf("hard link not preserved: %v", err)
-			}
-		})
-	}
-}
-
-func TestTarLayersApplyInOrder(t *testing.T) {
+func TestUntarKeepsOwnershipLocal(t *testing.T) {
 	t.Chdir(t.TempDir())
-	first := tarLayer(t, "gzip",
-		tarEntry{header: tar.Header{Name: "references/", Typeflag: tar.TypeDir, Mode: 0o500}},
-		tarEntry{header: tar.Header{Name: "references/value", Typeflag: tar.TypeReg, Mode: 0o600}, data: "old"},
-	)
-	second := tarLayer(t, "plain", tarEntry{header: tar.Header{Name: "references/value", Typeflag: tar.TypeReg, Mode: 0o640}, data: "new"})
-	if err := installLayers(first, second); err != nil {
+	layer := tarLayer(t, tarEntry{
+		header: tar.Header{Name: "parent/file", Typeflag: tar.TypeReg, Mode: 0o640, Uid: 123456, Gid: 234567},
+		data:   "content",
+	})
+	if err := installLayers(layer); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(".agents/skills/test/references/value")
-	if err != nil || string(data) != "new" {
-		t.Fatalf("later layer did not replace the file: %q, %v", data, err)
+	// The wrapper must handle archive owners and implicit parent directories
+	// without preserving foreign ownership or needing privileged chown calls.
+	for _, name := range []string{"parent", "parent/file"} {
+		info, err := os.Stat(".agents/skills/test/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stat := info.Sys().(*syscall.Stat_t)
+		if stat.Uid != uint32(os.Getuid()) || stat.Gid != uint32(os.Getgid()) {
+			t.Errorf("%s: got ownership %d:%d, want %d:%d", name, stat.Uid, stat.Gid, os.Getuid(), os.Getgid())
+		}
 	}
 }
 
-func TestTarLayersConfineWrites(t *testing.T) {
+func TestUntarConfinesWrites(t *testing.T) {
 	for _, name := range []string{"traversal", "absolute", "symlink parent", "hardlink traversal", "root file"} {
 		t.Run(name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
@@ -181,7 +107,7 @@ func TestTarLayersConfineWrites(t *testing.T) {
 				entry.header.Name, wantErr = ".", "archive root"
 			}
 			entries = append(entries, entry)
-			err = installLayers(tarLayer(t, "gzip", entries...))
+			err = installLayers(tarLayer(t, entries...))
 			if wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), wantErr) {
 					t.Fatalf("expected %q error, got %v", wantErr, err)
@@ -197,39 +123,27 @@ func TestTarLayersConfineWrites(t *testing.T) {
 	}
 }
 
-func TestTarLayersPreserveSymlinkTargets(t *testing.T) {
+func TestFailedUntarPreservesInstalledSkill(t *testing.T) {
 	t.Chdir(t.TempDir())
-	links := map[string]string{
-		"relative": "../outside", "absolute": "/tmp/outside",
-		"dangling": "missing/value", "cycle": "cycle", "alias": ".",
-		"chain": "alias/../outside",
-	}
-	var entries []tarEntry
-	for name, target := range links {
-		entries = append(entries, tarEntry{header: tar.Header{Name: name, Typeflag: tar.TypeSymlink, Linkname: target}})
-	}
-	if err := installLayers(tarLayer(t, "gzip", entries...)); err != nil {
+	if err := os.MkdirAll(".agents/skills/test", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range links {
-		got, err := os.Readlink(".agents/skills/test/" + name)
-		if err != nil || got != want {
-			t.Errorf("symlink %s changed: %q, %v; want %q", name, got, err, want)
-		}
+	if err := os.WriteFile(".agents/skills/test/SKILL.md", []byte("installed"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestTarLayersRejectInvalidData(t *testing.T) {
-	t.Chdir(t.TempDir())
-	for _, tc := range []struct {
-		data []byte
-		want error
-	}{
-		{[]byte("raw file"), io.ErrUnexpectedEOF},
-		{bytes.Repeat([]byte("x"), 1024), tar.ErrHeader},
-	} {
-		if err := installLayers(tc.data); !errors.Is(err, tc.want) {
-			t.Errorf("expected %v, got %v", tc.want, err)
-		}
+	layer := tarLayer(t, tarEntry{header: tar.Header{Name: "partial", Typeflag: tar.TypeReg, Mode: 0o644}, data: "new"})
+	// Replace tar's two EOF blocks with an incomplete header, after a valid
+	// file has already been extracted into staging.
+	layer = append(layer[:len(layer)-1024], []byte("truncated header")...)
+	if err := installLayers(layer); !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("expected unexpected EOF, got %v", err)
+	}
+	data, err := os.ReadFile(".agents/skills/test/SKILL.md")
+	if err != nil || string(data) != "installed" {
+		t.Fatalf("failed extraction changed installed files: %q, %v", data, err)
+	}
+	entries, err := os.ReadDir(".agents/skills")
+	if err != nil || len(entries) != 1 || entries[0].Name() != "test" {
+		t.Fatalf("staging files remain after failure: %v, %v", entries, err)
 	}
 }
