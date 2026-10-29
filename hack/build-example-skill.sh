@@ -22,7 +22,8 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 
 echo "Building example skill: ${REF}"
 
-tar -czf "${BUILD_DIR}/skill.tar.gz" -C "$SKILL_DIR" .
+# Exclude macOS AppleDouble metadata from the portable skill archive.
+COPYFILE_DISABLE=1 tar -czf "${BUILD_DIR}/skill.tar.gz" -C "$SKILL_DIR" .
 
 # Store the compressed directory tree verbatim as one OCI layer.
 podman artifact rm "${REF}" 2>/dev/null || true
