@@ -121,6 +121,11 @@ versions, and CI runs `skillctl update` to pull and extract updated skills.
 
 ## Testing conventions
 
+- Group related integration checks into lifecycle workflows to reuse
+  registry and artifact setup. Keep unrelated failure scenarios separate
+  so failures remain easy to diagnose.
+- Start registry fixtures explicitly in tests that need them. Validation
+  tests should not launch registries from file-wide setup functions.
 - Always check command output and error messages, not just exit statuses.
   Exit codes confirm pass/fail but do not catch regressions in user-facing
   messages or error paths. Match the expected output string or substring in

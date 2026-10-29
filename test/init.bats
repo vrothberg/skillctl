@@ -2,40 +2,26 @@
 
 load helpers
 
-@test "init creates manifest and skills directory" {
+@test "init creates an empty project and refuses to overwrite its manifest" {
     run_skillctl init
-    [ "$status" -eq 0 ]
-    [ -f skillctl.yaml ]
+    [[ "$output" == *"Initialized skillctl project"* ]]
     [ -d .agents/skills ]
-    [[ "$output" =~ "Initialized skillctl project" ]]
-}
-
-@test "init manifest contains correct apiVersion" {
-    run_skillctl init
-    [ "$status" -eq 0 ]
-    run grep "apiVersion: v1" skillctl.yaml
-    [ "$status" -eq 0 ]
-}
-
-@test "init manifest contains empty skills list" {
-    run_skillctl init
-    [ "$status" -eq 0 ]
-    run grep "skills: \[\]" skillctl.yaml
-    [ "$status" -eq 0 ]
-}
-
-@test "init fails if manifest already exists" {
-    run_skillctl init
-    [ "$status" -eq 0 ]
+    grep -q '^apiVersion: v1$' skillctl.yaml
+    grep -q '^skills: \[\]$' skillctl.yaml
+    local before
+    before=$(cat skillctl.yaml)
 
     run "$SKILLCTL" init
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "already exists" ]]
+    [[ "$output" == *"already exists"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
 }
 
-@test "init is idempotent for skills directory" {
+@test "init preserves a preexisting skills directory" {
     mkdir -p .agents/skills
+    echo existing > .agents/skills/marker
     run_skillctl init
-    [ "$status" -eq 0 ]
+    [[ "$output" == *"Initialized skillctl project"* ]]
     [ -d .agents/skills ]
+    [[ "$(cat .agents/skills/marker)" == "existing" ]]
 }

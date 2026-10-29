@@ -2,10 +2,6 @@
 
 load helpers
 
-function setup() {
-    setup_example_registry
-}
-
 @test "init rejects a skills directory outside the project" {
     mkdir outside
     ln -s "$TEST_WORKDIR/outside" .agents
@@ -17,6 +13,7 @@ function setup() {
 }
 
 @test "pull update and remove reject a symlinked skills parent" {
+    start_example_registry
     run_skillctl init
     run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [[ "$output" == *"Pulled"* ]]

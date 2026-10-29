@@ -33,8 +33,7 @@ function setup() {
 }
 
 # Build both versions from the checked-in example tree.
-function setup_example_registry() {
-    setup_workdir
+function start_example_registry() {
     start_registry
     export SSL_CERT_FILE="$TEST_WORKDIR/registry/certs/registry.crt"
     EXAMPLE_IMAGE="$REGISTRY_HOST/skillctl-example-skill"
