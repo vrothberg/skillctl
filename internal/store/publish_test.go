@@ -181,6 +181,11 @@ func TestPackagePreservesContents(t *testing.T) {
 	if err := os.Symlink(".hidden/run", filepath.Join(source, "run")); err != nil {
 		t.Fatal(err)
 	}
+	for name, target := range map[string]string{"absolute": "/tmp/outside", "relative": "../outside"} {
+		if err := os.Symlink(target, filepath.Join(source, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := os.Link(filepath.Join(source, ".hidden", "run"), filepath.Join(source, "hardlink")); err != nil {
 		t.Fatal(err)
 	}
@@ -206,6 +211,11 @@ func TestPackagePreservesContents(t *testing.T) {
 	if link, err := os.Readlink(installed + "run"); err != nil || link != ".hidden/run" {
 		t.Fatalf("symlink changed: %q, %v", link, err)
 	}
+	for name, want := range map[string]string{"absolute": "/tmp/outside", "relative": "../outside"} {
+		if link, err := os.Readlink(installed + name); err != nil || link != want {
+			t.Errorf("symlink %s changed: %q, %v; want %q", name, link, err, want)
+		}
+	}
 	first, err := os.Stat(installed + "hardlink")
 	if err != nil {
 		t.Fatal(err)
@@ -217,18 +227,7 @@ func TestPackagePreservesContents(t *testing.T) {
 }
 
 func TestPackageRejectsUnsupportedEntries(t *testing.T) {
-	for _, target := range []string{"../outside", "/tmp/outside"} {
-		t.Run(target, func(t *testing.T) {
-			dir := t.TempDir()
-			if err := os.Symlink(target, filepath.Join(dir, "link")); err != nil {
-				t.Fatal(err)
-			}
-			err := packageDirectory(context.Background(), dir, io.Discard)
-			if err == nil || !strings.Contains(err.Error(), "escapes the skill directory") {
-				t.Fatalf("expected escaping-link error, got %v", err)
-			}
-		})
-	}
+
 	dir := t.TempDir()
 	if err := syscall.Mkfifo(filepath.Join(dir, "pipe"), 0o600); err != nil {
 		t.Fatal(err)

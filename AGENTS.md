@@ -81,6 +81,18 @@ corresponding make target. See `.github/workflows/ci.yml`.
 
 ## Key design decisions
 
+### Reuse container tooling and focus on UX
+
+Prefer existing, battle-tested code from the container-tools ecosystem over
+writing new implementations. Check the vendored libraries and their APIs
+before adding low-level code, especially for OCI operations, archives,
+compression, signing, and filesystem handling. Reuse their supported behavior
+and configuration options; add custom machinery only for a concrete gap.
+
+Keep skillctl simple and focused on the user experience: commands, workflows,
+manifest and trust declarations, clear output, and actionable errors. Delegate
+the underlying mechanics to the existing libraries wherever practical.
+
 ### Trust and signature verification
 
 Trust lives in the manifest, not on the machine: every skill declares how it
@@ -101,6 +113,12 @@ store is open and check their removal after Close. See
 `internal/store/trust.go` (the config synthesis).
 
 ### Local artifact store
+
+Project writers (`init`, `pull`, `update`, and `remove`) hold a project lock
+for the whole command, including manifest reads and trust selection. The
+transient PID file is `skillctl.yaml.lock`. Always acquire the project lock
+before the artifact-store lock. A project remains serialized even when
+invocations use different stores; different projects can run independently.
 
 The OCI Image Layout store lives at `~/.local/share/skillctl/store/`. This is
 an implementation detail; the user-facing artifacts are `skillctl.yaml` and the

@@ -4,8 +4,10 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
+	"errors"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -66,13 +68,12 @@ func tarLayer(t *testing.T, format string, entries ...tarEntry) []byte {
 
 func installLayers(layers ...[]byte) error {
 	return skillfs.Install(".agents/skills/test", func(root *os.Root) error {
-		directories := map[string]tarMetadata{".": {mode: 0o755}}
 		for _, layer := range layers {
-			if err := unpackLayer(context.Background(), root, bytes.NewReader(layer), directories); err != nil {
+			if err := untar(bytes.NewReader(layer), root.Name()); err != nil {
 				return err
 			}
 		}
-		return finishDirectories(root, directories)
+		return nil
 	})
 }
 
@@ -89,7 +90,7 @@ func TestTarLayersPreserveTree(t *testing.T) {
 				tarEntry{header: tar.Header{Name: "references/deep/.config", Typeflag: tar.TypeReg, Mode: 0o640}, data: "settings"},
 				tarEntry{header: tar.Header{Name: "empty/", Typeflag: tar.TypeDir, Mode: 0o700}},
 				tarEntry{header: tar.Header{Name: "check", Typeflag: tar.TypeSymlink, Linkname: "scripts/check.sh"}},
-				tarEntry{header: tar.Header{Name: "check-hard", Typeflag: tar.TypeLink, Linkname: "scripts/check.sh"}},
+				tarEntry{header: tar.Header{Name: "check-hard", Typeflag: tar.TypeLink, Linkname: "scripts/check.sh", Mode: 0o751, ModTime: modified}},
 			)
 			if err := installLayers(layer); err != nil {
 				t.Fatal(err)
@@ -147,66 +148,88 @@ func TestTarLayersApplyInOrder(t *testing.T) {
 	}
 }
 
-func TestTarLayersRejectUnsafeEntries(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		header tar.Header
-		want   string
-	}{
-		{"traversal", tar.Header{Name: "../escape", Typeflag: tar.TypeReg}, "escapes"},
-		{"absolute", tar.Header{Name: "/tmp/escape", Typeflag: tar.TypeReg}, "escapes"},
-		{"symlink", tar.Header{Name: "escape", Typeflag: tar.TypeSymlink, Linkname: "../escape"}, "escapes"},
-		{"absolute symlink", tar.Header{Name: "escape", Typeflag: tar.TypeSymlink, Linkname: "/tmp/escape"}, "escapes"},
-		{"hardlink", tar.Header{Name: "escape", Typeflag: tar.TypeLink, Linkname: "../escape"}, "escapes"},
-		{"root file", tar.Header{Name: ".", Typeflag: tar.TypeReg}, "archive root must be a directory"},
-		{"device", tar.Header{Name: "device", Typeflag: tar.TypeChar}, "unsupported tar entry"},
-		{"fifo", tar.Header{Name: "pipe", Typeflag: tar.TypeFifo}, "unsupported tar entry"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+func TestTarLayersConfineWrites(t *testing.T) {
+	for _, name := range []string{"traversal", "absolute", "symlink parent", "hardlink traversal", "root file"} {
+		t.Run(name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			if err := os.MkdirAll(".agents/skills/test", 0o755); err != nil {
+			if err := os.MkdirAll(".agents/skills/outside-dir", 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(".agents/skills/test/SKILL.md", []byte("old skill"), 0o644); err != nil {
+			const sentinel = ".agents/skills/outside-dir/sentinel"
+			if err := os.WriteFile(sentinel, []byte("preserve me"), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			err := installLayers(tarLayer(t, "gzip", tarEntry{header: tc.header}))
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("expected %q error, got %v", tc.want, err)
+			absolute, err := filepath.Abs(sentinel)
+			if err != nil {
+				t.Fatal(err)
 			}
-			data, err := os.ReadFile(".agents/skills/test/SKILL.md")
-			if err != nil || string(data) != "old skill" {
-				t.Fatalf("failed extraction changed installed skill: %q, %v", data, err)
+			entry := tarEntry{header: tar.Header{Typeflag: tar.TypeReg, Mode: 0o644}, data: "archive contents"}
+			var entries []tarEntry
+			var wantErr string
+			switch name {
+			case "traversal":
+				entry.header.Name, wantErr = "../outside-dir/sentinel", "outside of"
+			case "absolute":
+				entry.header.Name = absolute
+			case "symlink parent":
+				entries = append(entries, tarEntry{header: tar.Header{Name: "alias", Typeflag: tar.TypeSymlink, Linkname: "../outside-dir"}})
+				entry.header.Name = "alias/sentinel"
+			case "hardlink traversal":
+				entry = tarEntry{header: tar.Header{Name: "hardlink", Typeflag: tar.TypeLink, Linkname: "../outside-dir/sentinel"}}
+				wantErr = "invalid hardlink"
+			case "root file":
+				entry.header.Name, wantErr = ".", "archive root"
+			}
+			entries = append(entries, entry)
+			err = installLayers(tarLayer(t, "gzip", entries...))
+			if wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), wantErr) {
+					t.Fatalf("expected %q error, got %v", wantErr, err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(sentinel)
+			if err != nil || string(data) != "preserve me" {
+				t.Fatalf("extraction changed an outside file: %q, %v", data, err)
 			}
 		})
 	}
 }
 
-func TestTarLayerRejectsInvalidData(t *testing.T) {
+func TestTarLayersPreserveSymlinkTargets(t *testing.T) {
 	t.Chdir(t.TempDir())
-	for _, data := range [][]byte{[]byte("raw file"), bytes.Repeat([]byte("x"), 1024)} {
-		err := installLayers(data)
-		if err == nil || !strings.Contains(err.Error(), "invalid tar archive") {
-			t.Errorf("expected invalid-tar error, got %v", err)
-		}
+	links := map[string]string{
+		"relative": "../outside", "absolute": "/tmp/outside",
+		"dangling": "missing/value", "cycle": "cycle", "alias": ".",
+		"chain": "alias/../outside",
 	}
-	data := tarLayer(t, "gzip", tarEntry{header: tar.Header{Name: "file", Typeflag: tar.TypeReg}, data: "data"})
-	data[len(data)-8] ^= 0xff
-	if err := installLayers(data); err == nil || !strings.Contains(err.Error(), "checksum") {
-		t.Errorf("expected compression-checksum error, got %v", err)
+	var entries []tarEntry
+	for name, target := range links {
+		entries = append(entries, tarEntry{header: tar.Header{Name: name, Typeflag: tar.TypeSymlink, Linkname: target}})
+	}
+	if err := installLayers(tarLayer(t, "gzip", entries...)); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range links {
+		got, err := os.Readlink(".agents/skills/test/" + name)
+		if err != nil || got != want {
+			t.Errorf("symlink %s changed: %q, %v; want %q", name, got, err, want)
+		}
 	}
 }
 
-func TestTarLayerRejectsSymlinkParent(t *testing.T) {
+func TestTarLayersRejectInvalidData(t *testing.T) {
 	t.Chdir(t.TempDir())
-	layer := tarLayer(t, "gzip",
-		tarEntry{header: tar.Header{Name: "alias", Typeflag: tar.TypeSymlink, Linkname: "."}},
-		tarEntry{header: tar.Header{Name: "alias/escape", Typeflag: tar.TypeSymlink, Linkname: "../outside"}},
-	)
-	if err := installLayers(layer); err == nil || !strings.Contains(err.Error(), "symlink parent") {
-		t.Fatalf("expected symlink-parent error, got %v", err)
-	}
-	if _, err := os.Lstat(".agents/skills/test"); !os.IsNotExist(err) {
-		t.Fatalf("failed extraction installed a skill: %v", err)
+	for _, tc := range []struct {
+		data []byte
+		want error
+	}{
+		{[]byte("raw file"), io.ErrUnexpectedEOF},
+		{bytes.Repeat([]byte("x"), 1024), tar.ErrHeader},
+	} {
+		if err := installLayers(tc.data); !errors.Is(err, tc.want) {
+			t.Errorf("expected %v, got %v", tc.want, err)
+		}
 	}
 }

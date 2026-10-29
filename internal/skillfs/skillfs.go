@@ -26,8 +26,8 @@ func RemoveAll(path string) error {
 	return root.RemoveAll(path)
 }
 
-// Install populates a private rooted staging directory before replacing the
-// installed skill. The extractor must use the provided root for all writes.
+// Install populates a private staging directory before replacing the installed
+// skill. The extractor is responsible for confining writes to that directory.
 func Install(target string, extract func(*os.Root) error) error {
 	root, err := os.OpenRoot(".")
 	if err != nil {

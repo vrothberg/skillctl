@@ -7,6 +7,7 @@ TEST_WORKDIR=""
 REGISTRY_PID=""
 REGISTRY_PORT=""
 REGISTRY_HOST=""
+TEST_BACKGROUND_PIDS=()
 
 TESTDATA_DIR="${BATS_TEST_DIRNAME}/testdata"
 SIGSTORE_KEY="${TESTDATA_DIR}/sigstore.key"
@@ -47,6 +48,10 @@ function start_example_registry() {
 }
 
 function teardown() {
+    for pid in "${TEST_BACKGROUND_PIDS[@]}"; do
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+    done
     stop_registry
     popd > /dev/null
     rm -rf "$TEST_WORKDIR"

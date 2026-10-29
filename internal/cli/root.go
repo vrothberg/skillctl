@@ -2,6 +2,8 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/vrothberg/skillctl/internal/locking"
+	"github.com/vrothberg/skillctl/internal/manifest"
 	"github.com/vrothberg/skillctl/internal/store"
 )
 
@@ -11,9 +13,9 @@ var storeFlag string
 
 func Root() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "skillctl",
-		Short: "Manage AI agent skills as OCI artifacts",
-		Long:  "skillctl publishes, pulls, verifies, and manages AI agent skills as OCI artifacts with the same supply-chain guarantees as container images.",
+		Use:           "skillctl",
+		Short:         "Manage AI agent skills as OCI artifacts",
+		Long:          "skillctl publishes, pulls, verifies, and manages AI agent skills as OCI artifacts with the same supply-chain guarantees as container images.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -21,14 +23,27 @@ func Root() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&storeFlag, "store", "", "path to the skillctl store (default: ~/.local/share/skillctl/store, or "+store.StoreEnvVar+")")
 
 	cmd.AddCommand(
-		initCommand(),
-		pullCommand(),
+		withProjectLock(initCommand()),
+		withProjectLock(pullCommand()),
 		publishCommand(),
 		listCommand(),
-		updateCommand(),
-		removeCommand(),
+		withProjectLock(updateCommand()),
+		withProjectLock(removeCommand()),
 		versionCommand(),
 	)
 
+	return cmd
+}
+
+// Lock before RunE reads the manifest or selects trust declarations. All
+// project writers acquire this lock before the artifact-store lock, including
+// invocations that use different stores for the same project.
+func withProjectLock(cmd *cobra.Command) *cobra.Command {
+	run := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return locking.WithLock(manifest.DefaultFile+".lock", func() error {
+			return run(cmd, args)
+		})
+	}
 	return cmd
 }
