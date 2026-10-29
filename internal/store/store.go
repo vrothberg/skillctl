@@ -13,17 +13,18 @@ import (
 	"github.com/vrothberg/skillctl/internal/skillfs"
 	"go.podman.io/common/libimage"
 	"go.podman.io/common/pkg/libartifact"
-	libartTypes "go.podman.io/common/pkg/libartifact/types"
 	"go.podman.io/image/v5/docker/reference"
+	"go.podman.io/image/v5/oci/layout"
 	"go.podman.io/image/v5/types"
 )
 
 const defaultStoreDir = ".local/share/skillctl/store"
 
 type Store struct {
-	artifact *libartifact.ArtifactStore
-	sc       *types.SystemContext
-	trustDir string
+	artifact  *libartifact.ArtifactStore
+	sc        *types.SystemContext
+	trustDir  string
+	storePath string
 }
 
 type StoreOptions struct {
@@ -97,7 +98,7 @@ func NewWithOptions(storePath string, opts StoreOptions) (*Store, error) {
 	}
 
 	success = true
-	return &Store{artifact: as, sc: sc, trustDir: trustDir}, nil
+	return &Store{artifact: as, sc: sc, trustDir: trustDir, storePath: storePath}, nil
 }
 
 // Close removes this store's private verification configuration.
@@ -158,17 +159,37 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 		return fmt.Errorf("parsing store reference %q: %w", imageRef, err)
 	}
 
-	stage, err := os.MkdirTemp("", "skillctl-extract-")
+	artifact, err := s.artifact.Inspect(ctx, asr)
 	if err != nil {
-		return fmt.Errorf("creating extraction directory: %w", err)
+		return fmt.Errorf("inspecting %q: %w", imageRef, err)
 	}
-	defer func() { _ = os.RemoveAll(stage) }()
-
-	opts := &libartTypes.ExtractOptions{}
-	if err := s.artifact.Extract(ctx, asr, stage, opts); err != nil {
-		return fmt.Errorf("extracting %q to %q: %w", imageRef, targetDir, err)
+	ref, err := layout.NewReference(s.storePath, artifact.Name)
+	if err != nil {
+		return err
 	}
-	if err := skillfs.Install(stage, targetDir); err != nil {
+	source, err := ref.NewImageSource(ctx, s.sc)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = source.Close() }()
+	if err := skillfs.Install(targetDir, func(root *os.Root) error {
+		directories := map[string]tarMetadata{".": {mode: 0o755}}
+		for _, layer := range artifact.Manifest.Layers {
+			blob, _, err := source.GetBlob(ctx, types.BlobInfo{Digest: layer.Digest}, nil)
+			if err != nil {
+				return err
+			}
+			err = unpackLayer(ctx, root, blob, directories)
+			closeErr := blob.Close()
+			if err != nil {
+				return fmt.Errorf("extracting tar layer %s: %w", layer.Digest, err)
+			}
+			if closeErr != nil {
+				return closeErr
+			}
+		}
+		return finishDirectories(root, directories)
+	}); err != nil {
 		return fmt.Errorf("installing %q to %q: %w", imageRef, targetDir, err)
 	}
 	return nil

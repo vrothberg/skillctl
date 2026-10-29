@@ -23,7 +23,7 @@ internal/manifest/             Manifest read/write/update (skillctl.yaml), trust
 internal/store/                Wraps libartifact.ArtifactStore (pull, extract, trust config synthesis)
 test/                          BATS integration tests
 hack/                          Helper scripts and example skill
-  example-skill/               Example skill pushed to quay.io for testing
+  example-skill/               Example skill directory used by tests
   build-example-skill.sh       Builds and pushes the example skill
   tree_status.sh               Fails if git tree is dirty
 vendor/                        Vendored Go dependencies
@@ -141,11 +141,13 @@ versions, and CI runs `skillctl update` to pull and extract updated skills.
 ## Example skill
 
 `hack/example-skill/` contains a toy skill pushed to
-`quay.io/vrothberg/skillctl-example-skill`. It has two files: `skill.md`
-(prompt) and `counter.txt` (an integer). Two versions exist: v1.0.0
-(counter=1) and v1.0.1 (counter=2). The integration tests pull these real
-artifacts from quay.io. The artifacts are unsigned, so tests declare
-`--trust none` for them.
+`quay.io/vrothberg/skillctl-example-skill`. It contains `SKILL.md`,
+`counter.txt`, an executable in `scripts/`, and nested files in `references/`.
+The builder packages the entire directory as a gzip-compressed tar layer.
+
+Integration tests build tar artifacts from this source and push them to
+isolated local registries, including signed artifacts and multiple layers.
+They check nested file contents and executable permissions after extraction.
 
 To push a new version:
 

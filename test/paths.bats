@@ -2,6 +2,10 @@
 
 load helpers
 
+function setup() {
+    setup_example_registry
+}
+
 @test "init rejects a skills directory outside the project" {
     mkdir outside
     ln -s "$TEST_WORKDIR/outside" .agents
@@ -14,7 +18,7 @@ load helpers
 
 @test "pull update and remove reject a symlinked skills parent" {
     run_skillctl init
-    run_skillctl pull --trust none quay.io/vrothberg/skillctl-example-skill:v1.0.0
+    run_skillctl pull --trust none ${EXAMPLE_IMAGE}:v1.0.0
     [[ "$output" == *"Pulled"* ]]
     mv .agents/skills "$TEST_WORKDIR/outside"
     ln -s "$TEST_WORKDIR/outside" .agents/skills
@@ -23,7 +27,7 @@ load helpers
 
     for command in pull update remove; do
         case "$command" in
-            pull) run "$SKILLCTL" pull --force quay.io/vrothberg/skillctl-example-skill:v1.0.0 ;;
+            pull) run "$SKILLCTL" pull --force ${EXAMPLE_IMAGE}:v1.0.0 ;;
             update) run "$SKILLCTL" update --force ;;
             remove) run "$SKILLCTL" remove skillctl-example-skill ;;
         esac

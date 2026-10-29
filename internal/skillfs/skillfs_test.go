@@ -1,6 +1,7 @@
 package skillfs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +22,7 @@ func TestRejectSymlinkEscape(t *testing.T) {
 	for _, link := range []string{".agents", ".agents/skills"} {
 		for _, operation := range []string{"install", "remove", "mkdir"} {
 			t.Run(link+"/"+operation, func(t *testing.T) {
-				project, outside, source := t.TempDir(), t.TempDir(), t.TempDir()
+				project, outside := t.TempDir(), t.TempDir()
 				t.Chdir(project)
 				if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 					t.Fatal(err)
@@ -31,12 +32,13 @@ func TestRejectSymlinkEscape(t *testing.T) {
 				}
 				sentinel := filepath.Join(outside, "victim", "secret")
 				writeFile(t, sentinel, "preserve me")
-				writeFile(t, filepath.Join(source, "skill.md"), "new skill")
 				target := filepath.Join(link, "victim")
 				var err error
 				switch operation {
 				case "install":
-					err = Install(source, target)
+					err = Install(target, func(root *os.Root) error {
+						return root.WriteFile("SKILL.md", []byte("new skill"), 0o644)
+					})
 				case "remove":
 					err = RemoveAll(target)
 				case "mkdir":
@@ -55,14 +57,15 @@ func TestRejectSymlinkEscape(t *testing.T) {
 }
 
 func TestInstallReplacesFiles(t *testing.T) {
-	project, source := t.TempDir(), t.TempDir()
+	project := t.TempDir()
 	t.Chdir(project)
 	writeFile(t, ".agents/skills/test/stale", "old")
-	writeFile(t, filepath.Join(source, "skill.md"), "new")
-	if err := Install(source, ".agents/skills/test"); err != nil {
+	if err := Install(".agents/skills/test", func(root *os.Root) error {
+		return root.WriteFile("SKILL.md", []byte("new"), 0o644)
+	}); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(".agents/skills/test/skill.md")
+	data, err := os.ReadFile(".agents/skills/test/SKILL.md")
 	if err != nil || string(data) != "new" {
 		t.Fatalf("installed content: %q, %v", data, err)
 	}
@@ -77,17 +80,17 @@ func TestInstallReplacesFiles(t *testing.T) {
 
 func TestInvalidExtractionPreservesInstalledSkill(t *testing.T) {
 	t.Chdir(t.TempDir())
-	source := t.TempDir()
-	writeFile(t, ".agents/skills/test/skill.md", "old skill")
-	writeFile(t, filepath.Join(source, "a-valid-file"), "new")
-	if err := os.Symlink("a-valid-file", filepath.Join(source, "z-symlink")); err != nil {
-		t.Fatal(err)
-	}
-	err := Install(source, ".agents/skills/test")
-	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
+	writeFile(t, ".agents/skills/test/SKILL.md", "old skill")
+	err := Install(".agents/skills/test", func(root *os.Root) error {
+		if err := root.WriteFile("new-file", []byte("partial extraction"), 0o644); err != nil {
+			return err
+		}
+		return errors.New("invalid archive")
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid archive") {
 		t.Fatalf("expected invalid extraction error, got %v", err)
 	}
-	data, err := os.ReadFile(".agents/skills/test/skill.md")
+	data, err := os.ReadFile(".agents/skills/test/SKILL.md")
 	if err != nil || string(data) != "old skill" {
 		t.Fatalf("installed skill was changed: %q, %v", data, err)
 	}

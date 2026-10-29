@@ -17,14 +17,17 @@ REGISTRY="${REGISTRY:-quay.io/vrothberg}"
 IMAGE="${REGISTRY}/skillctl-example-skill"
 TAG="${1:-v1.0.0}"
 REF="${IMAGE}:${TAG}"
+BUILD_DIR=$(mktemp -d /tmp/skillctl-example.XXXXXX)
+trap 'rm -rf "$BUILD_DIR"' EXIT
 
 echo "Building example skill: ${REF}"
 
-# Remove existing artifact if present, then add fresh.
+tar -czf "${BUILD_DIR}/skill.tar.gz" -C "$SKILL_DIR" .
+
+# Store the compressed directory tree verbatim as one OCI layer.
 podman artifact rm "${REF}" 2>/dev/null || true
-podman artifact add "${REF}" \
-    "${SKILL_DIR}/skill.md" \
-    "${SKILL_DIR}/counter.txt"
+podman artifact add --file-type application/vnd.oci.image.layer.v1.tar+gzip \
+    "${REF}" "${BUILD_DIR}/skill.tar.gz"
 
 echo "Pushing ${REF} ..."
 podman artifact push "${REF}"

@@ -18,16 +18,19 @@ function setup() {
     fi
 }
 
-@test "pull Red Hat image with pinned key succeeds" {
+@test "pull verifies Red Hat signature before rejecting unsafe image contents" {
     curl -sL "$REDHAT_KEY_URL" -o "$TEST_WORKDIR/redhat.pub"
 
     run_skillctl init
 
-    run_skillctl pull --trust key="$TEST_WORKDIR/redhat.pub" "$REDHAT_IMAGE"
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Pulled static" ]]
-    [ -d .agents/skills/static ]
-    grep -q "trust:" skillctl.yaml
+    run "$SKILLCTL" pull --trust key="$TEST_WORKDIR/redhat.pub" "$REDHAT_IMAGE"
+    [ "$status" -ne 0 ]
+    # Reaching extraction proves signature verification succeeded. This
+    # container image has absolute symlinks unsuitable for a skill directory.
+    [[ "$output" == *"extracting tar layer"* ]]
+    [[ "$output" == *"symlink"*"escapes the skill directory"* ]]
+    [ ! -d .agents/skills/static ]
+    ! grep -q 'name: static' skillctl.yaml
 
     [ ! -f "$SKILLCTL_STORE/policy.json" ]
 }

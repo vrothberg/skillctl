@@ -1,0 +1,1 @@
+The current counter value is: 1

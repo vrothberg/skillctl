@@ -89,6 +89,25 @@ Make lasting changes in the skill's source and publish a new version; commit the
 Both commands pull the image and compare its resolved digest with the recorded digest. If the digests match, they skip extraction, even if local files have been changed or deleted.
 Use `skillctl pull --force IMAGE` or `skillctl update --force` to restore files from the artifact even when the digest is unchanged.
 
+## Artifact format
+
+Each OCI layer must contain a tar archive, optionally compressed with gzip or
+zstd. Archive paths are relative to the skill directory, with `SKILL.md` at
+the root. Layers are extracted in manifest order; later entries replace
+earlier files. Nested directories, executable permissions, and links within
+the skill directory are preserved. Paths and links that escape the skill
+directory, device files, and FIFOs are rejected.
+
+Built-in support for building skill OCI artifacts is planned for skillctl.
+For now, package a skill directory as one layer with tar and Podman:
+
+```bash
+tar -czf /tmp/skill.tar.gz -C path/to/skill .
+podman artifact add --file-type application/vnd.oci.image.layer.v1.tar+gzip \
+    registry.example.com/team/skill:1.0 /tmp/skill.tar.gz
+podman artifact push registry.example.com/team/skill:1.0
+```
+
 ## Manifest format
 
 `skillctl.yaml` tracks skills with their OCI image references, resolved digests, and trust declarations:
