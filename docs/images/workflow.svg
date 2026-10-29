@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" role="img" aria-labelledby="title description">
+  <title id="title">Publish a skill. Verify its origin. Choose your workflow.</title>
+  <desc id="description">A skill document becomes a versioned, signed package in an OCI registry. After publisher verification, it can be installed on demand without Git, or updated through a pull request for human review. Verification establishes origin, not the safety of instructions.</desc>
+  <style>
+    text { font-family: "Trebuchet MS", "Segoe UI", sans-serif; fill: #333333; }
+    .headline { font-size: 33px; font-weight: 700; letter-spacing: -.6px; }
+    .label { font-size: 25px; font-weight: 700; }
+    .copy { font-size: 18px; fill: #64615b; }
+    .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+    .outline { stroke: #333333; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .route { fill: none; stroke: #77716a; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+
+  <rect width="1200" height="600" rx="24" fill="#faf7ef"/>
+  <text x="50" y="63" class="headline">Shared skills. Known origins. Your workflow.</text>
+  <path d="M51 81 Q246 86 432 81" fill="none" stroke="#ddac4d" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- A skill is a readable document, not an opaque container. -->
+  <g transform="translate(77 190) rotate(-5 80 100)">
+    <path d="M9 13 L156 11 L161 203 L7 206 Z" fill="#e5dfd3"/>
+    <path d="M0 2 Q66 -2 121 1 L151 32 L153 190 Q76 195 -2 191 Z" fill="#fffefa" class="outline"/>
+    <path d="M121 2 L120 33 L150 33" fill="#f1e8d6" class="outline"/>
+    <text x="18" y="66" font-size="21" class="mono" font-weight="700">SKILL.md</text>
+    <path d="M18 88 L128 88 M18 105 L115 105 M18 122 L125 122 M18 151 L101 151 M18 168 L119 168" fill="none" stroke="#bdb6aa" stroke-width="5" stroke-linecap="round"/>
+    <path d="M17 104 L82 104" fill="none" stroke="#ddac4d" stroke-width="6" stroke-linecap="round"/>
+    <path d="M-15 23 L-26 15 M-14 42 L-31 42 M-8 5 L-11 -9" fill="none" class="outline"/>
+  </g>
+  <text x="145" y="442" text-anchor="middle" class="label">Publish a skill</text>
+  <text x="145" y="469" text-anchor="middle" class="copy">Your instructions + files</text>
+
+  <!-- Loose, hand-drawn routes keep the visual away from a flowchart. -->
+  <path d="M256 292 C285 271 309 271 338 286 M326 274 L339 286 L322 290" class="route"/>
+
+  <!-- A versioned package in an existing registry. -->
+  <g transform="translate(356 191) rotate(3 105 95)">
+    <path d="M0 39 L99 0 L211 36 L112 80 Z" fill="#f1d290" class="outline"/>
+    <path d="M0 39 L112 80 L113 200 L2 155 Z" fill="#e7b65e" class="outline"/>
+    <path d="M112 80 L211 36 L210 153 L113 200 Z" fill="#f5dfad" class="outline"/>
+    <path d="M49 20 L159 59 L158 103 L135 114 L135 69 L25 30" fill="#fff1cb" stroke="#333333" stroke-width="2.5" stroke-linejoin="round"/>
+    <g transform="rotate(-10 52 106)">
+      <rect x="20" y="81" width="63" height="46" rx="4" fill="#fffefa" stroke="#333333" stroke-width="2"/>
+      <text x="51" y="113" text-anchor="middle" font-size="25" font-weight="700" class="mono">v1</text>
+    </g>
+    <circle cx="166" cy="139" r="24" fill="#2f7569" stroke="#333333" stroke-width="2.5"/>
+    <path d="M159 130 A8 8 0 1 1 170 139 L160 149 M162 147 L166 151 M166 143 L170 147" fill="none" stroke="#fffefa" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="464" y="442" text-anchor="middle" class="label">A signed version</text>
+  <text x="464" y="469" text-anchor="middle" class="copy">In your OCI registry</text>
+
+  <path d="M591 291 Q616 277 640 290 M629 279 L642 290 L626 296" class="route"/>
+
+  <!-- The check is publisher verification, not a claim of safe instructions. -->
+  <g transform="translate(645 241)">
+    <path d="M54 0 C78 2 99 18 102 46 C104 75 84 97 56 99 C27 102 4 83 1 55 C-2 27 20 2 54 0 Z" fill="#e0eee5" class="outline"/>
+    <path d="M30 51 L47 67 L77 33" fill="none" stroke="#2f7569" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="698" y="374" text-anchor="middle" font-size="21" font-weight="700">Verify publisher</text>
+
+  <!-- Two equally valid uses: interactive installation and reviewed updates. -->
+  <path d="M753 271 C787 265 784 211 827 207 M814 199 L829 207 L816 217" class="route"/>
+  <path d="M753 314 C785 326 778 435 824 439 M813 427 L826 440 L811 446" class="route"/>
+
+  <text x="858" y="139" class="label">Install on demand</text>
+  <g transform="translate(849 159) rotate(-2 143 64)">
+    <path d="M0 5 Q137 0 285 3 L288 126 Q139 132 -1 127 Z" fill="#333333"/>
+    <circle cx="19" cy="22" r="4" fill="#e7b65e"/>
+    <circle cx="34" cy="22" r="4" fill="#aaa49a"/>
+    <circle cx="49" cy="22" r="4" fill="#aaa49a"/>
+    <text x="19" y="66" class="mono" font-size="19" style="fill:#fffefa">$ skillctl pull …</text>
+    <path d="M20 91 L30 101 L47 81" fill="none" stroke="#8bc6ae" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="59" y="99" font-size="18" style="fill:#d7e8df">Skill installed</text>
+  </g>
+  <text x="858" y="320" class="copy">When you need it. No Git required.</text>
+
+  <text x="858" y="379" class="label">Review updates</text>
+  <g transform="translate(846 396) rotate(2 143 58)">
+    <path d="M0 4 Q141 -1 287 2 L288 113 Q142 119 -2 114 Z" fill="#fffefa" class="outline"/>
+    <text x="17" y="29" font-size="16" font-weight="700">Update skill: v1 → v2</text>
+    <path d="M15 42 L272 42" stroke="#ddd6ca" stroke-width="1.5"/>
+    <rect x="13" y="52" width="260" height="23" rx="3" fill="#f6e5df"/>
+    <rect x="13" y="81" width="260" height="23" rx="3" fill="#e0eee5"/>
+    <path d="M23 63 L32 63 M48 63 L198 63" stroke="#b66a55" stroke-width="3" stroke-linecap="round"/>
+    <path d="M23 92 L32 92 M27.5 87.5 L27.5 96.5 M48 92 L234 92" stroke="#2f7569" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="258" cy="24" r="9" fill="#f1d290"/>
+    <path d="M254 24 L257 27 L262 21" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <text x="858" y="552" class="copy">See the changes. Then approve.</text>
+
+  <text x="50" y="557" font-size="16" style="fill:#77716a">Signatures establish origin. Reviewing content is still essential.</text>
+</svg>
