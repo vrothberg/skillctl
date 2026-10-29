@@ -18,7 +18,6 @@ import (
 	"go.podman.io/image/v5/pkg/blobinfocache/none"
 	"go.podman.io/image/v5/signature/signer"
 	"go.podman.io/image/v5/types"
-	"gopkg.in/yaml.v3"
 )
 
 type PublishOptions struct {
@@ -160,26 +159,11 @@ func publishContext(stage, storePath, repository string, insecure bool) (*types.
 			"oci": {localRef.PolicyConfigurationIdentity(): {json.RawMessage(`{"type":"insecureAcceptAnything"}`)}},
 		},
 	}
-	raw, err := json.Marshal(policy)
-	if err != nil {
-		return nil, err
-	}
-	policyPath := filepath.Join(stage, "policy.json")
-	if err := os.WriteFile(policyPath, raw, 0o600); err != nil {
-		return nil, err
-	}
 	registries := registriesConfig{Docker: map[string]registryNamespace{}}
 	attachments := true
 	registries.Docker[repository] = registryNamespace{UseSigstoreAttachments: &attachments}
-	registriesDir := filepath.Join(stage, "registries.d")
-	if err := os.MkdirAll(registriesDir, 0o700); err != nil {
-		return nil, err
-	}
-	registriesYAML, err := yaml.Marshal(registries)
+	policyPath, registriesDir, err := writeVerificationConfig(stage, policy, registries)
 	if err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(filepath.Join(registriesDir, "skillctl.yaml"), registriesYAML, 0o600); err != nil {
 		return nil, err
 	}
 	sc := &types.SystemContext{SignaturePolicyPath: policyPath, RegistriesDirPath: registriesDir}
