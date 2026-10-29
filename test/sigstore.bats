@@ -7,6 +7,25 @@
 
 load helpers
 
+@test "pull derives the skill name from a port-qualified digest reference" {
+    start_registry
+    push_artifact "$REGISTRY_HOST/skill:v1"
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Pulled skill"* ]]
+    local digest
+    digest=$(awk '/digest:/ {print $2}' skillctl.yaml)
+
+    run_skillctl pull --tls-verify=false "$REGISTRY_HOST/skill@$digest"
+    [[ "$output" == *"Updated manifest for skill"* ]]
+    [[ "$output" == *"skill is up to date"* ]]
+    grep -Fq "image: $REGISTRY_HOST/skill@$digest" skillctl.yaml
+    [[ "$(grep -c 'name:' skillctl.yaml)" == "1" ]]
+    [[ "$(cat .agents/skills/skill/counter.txt)" == "1" ]]
+    [ ! -d .agents/skills/localhost ]
+}
+
 @test "pull records a new image reference without replacing unchanged files" {
     start_registry
     push_artifact "$REGISTRY_HOST/skill:v1"

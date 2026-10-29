@@ -3,13 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/vrothberg/skillctl/internal/manifest"
 	"github.com/vrothberg/skillctl/internal/skillfs"
 	"github.com/vrothberg/skillctl/internal/store"
+	"go.podman.io/image/v5/docker/reference"
 )
 
 func pullCommand() *cobra.Command {
@@ -35,7 +36,10 @@ func pullCommand() *cobra.Command {
 			}
 
 			if name == "" {
-				name = skillName(imageRef)
+				name, err = skillName(imageRef)
+				if err != nil {
+					return fmt.Errorf("parsing image reference %q: %w", imageRef, err)
+				}
 			}
 
 			if err := manifest.ValidateSkillName(name); err != nil {
@@ -132,17 +136,10 @@ Declare how to verify it:
 	return cmd
 }
 
-func skillName(imageRef string) string {
-	// quay.io/redhat/skills/translator:1.0 -> translator
-	ref := imageRef
-	if at := strings.LastIndex(ref, "@"); at != -1 {
-		ref = ref[:at]
+func skillName(imageRef string) (string, error) {
+	ref, err := reference.ParseNormalizedNamed(imageRef)
+	if err != nil {
+		return "", err
 	}
-	if colon := strings.LastIndex(ref, ":"); colon != -1 {
-		ref = ref[:colon]
-	}
-	if slash := strings.LastIndex(ref, "/"); slash != -1 {
-		ref = ref[slash+1:]
-	}
-	return ref
+	return path.Base(reference.Path(ref)), nil
 }
