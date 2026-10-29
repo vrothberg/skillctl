@@ -7,6 +7,83 @@
 
 load helpers
 
+@test "pull derives the skill name from a port-qualified digest reference" {
+    start_registry
+    push_artifact "$REGISTRY_HOST/skill:v1"
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Pulled skill"* ]]
+    local digest
+    digest=$(awk '/digest:/ {print $2}' skillctl.yaml)
+
+    run_skillctl pull --tls-verify=false "$REGISTRY_HOST/skill@$digest"
+    [[ "$output" == *"Updated manifest for skill"* ]]
+    [[ "$output" == *"skill is up to date"* ]]
+    grep -Fq "image: $REGISTRY_HOST/skill@$digest" skillctl.yaml
+    [[ "$(grep -c 'name:' skillctl.yaml)" == "1" ]]
+    [[ "$(cat .agents/skills/skill/counter.txt)" == "1" ]]
+    [ ! -d .agents/skills/localhost ]
+}
+
+@test "pull records a new image reference without replacing unchanged files" {
+    start_registry
+    push_artifact "$REGISTRY_HOST/skill:v1"
+    push_artifact "$REGISTRY_HOST/skill:v2"
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Pulled skill"* ]]
+    local digest
+    digest=$(awk '/digest:/ {print $2}' skillctl.yaml)
+    echo "local edit" > .agents/skills/skill/counter.txt
+
+    run_skillctl pull --tls-verify=false "$REGISTRY_HOST/skill:v2"
+    [[ "$output" == *"Updated manifest for skill"* ]]
+    [[ "$output" == *"skill is up to date"* ]]
+    grep -Fq "image: $REGISTRY_HOST/skill:v2" skillctl.yaml
+    grep -Fq "digest: $digest" skillctl.yaml
+    [[ "$(cat .agents/skills/skill/counter.txt)" == "local edit" ]]
+}
+
+@test "pull records changed trust without replacing unchanged files" {
+    start_registry
+    push_artifact "$REGISTRY_HOST/skill:v1" --sign
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Pulled skill"* ]]
+    echo "local edit" > .agents/skills/skill/counter.txt
+
+    run_skillctl pull --trust key="$SIGSTORE_PUB" --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Updated manifest for skill"* ]]
+    [[ "$output" == *"skill is up to date"* ]]
+    grep -Fq "key: $SIGSTORE_PUB" skillctl.yaml
+    [[ "$(cat .agents/skills/skill/counter.txt)" == "local edit" ]]
+
+    run_skillctl pull --trust none --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Updated manifest for skill"* ]]
+    grep -Fq "trust: none" skillctl.yaml
+    [[ "$(cat .agents/skills/skill/counter.txt)" == "local edit" ]]
+}
+
+@test "pull keeps existing metadata when new trust verification fails" {
+    start_registry
+    push_artifact "$REGISTRY_HOST/skill:v1"
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    run_skillctl pull --trust none --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [[ "$output" == *"Pulled skill"* ]]
+    local before
+    before=$(cat skillctl.yaml)
+
+    run "$SKILLCTL" pull --trust key="$SIGSTORE_PUB" --tls-verify=false "$REGISTRY_HOST/skill:v1"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"A signature was required, but no signature exists"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+    [[ "$(cat .agents/skills/skill/counter.txt)" == "1" ]]
+}
+
 @test "tagged digest references preserve input and verify by digest on pull and update" {
     start_registry
     push_artifact "$REGISTRY_HOST/skill:v1" --sign
