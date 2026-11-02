@@ -13,6 +13,12 @@ artifacts through OCI registries and verify them against trusted publisher
 keys. Install skills interactively when you need them, or manage them as
 project dependencies with automated updates and reviewed file changes.
 
+Skills are the starting point. skillctl could expand to distribute
+[agent plugins](https://github.com/agentplugins/agent-plugins-spec) through
+the same OCI workflow, focusing solely on distribution: publishing,
+verification, installation, and updates. Agent clients would handle plugin
+activation and execution.
+
 ![Publish a signed skill to an OCI registry, verify its publisher, then install on demand or review project updates.](docs/images/workflow.svg)
 
 Teams can reuse the registry access controls, signing infrastructure, and
