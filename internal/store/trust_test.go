@@ -313,6 +313,8 @@ func TestSameImage(t *testing.T) {
 		{"quay.io/team/skill:v1", "quay.io/team/skill:v1", true},
 		{"quay.io/team/skill", "quay.io/team/skill:latest", true},
 		{"quay.io/team/skill:v1@" + testDigest, "quay.io/team/skill:v2@" + testDigest, true},
+		// Short names normalize, although pull rejects non-canonical
+		// references in libartifact today.
 		{"skill:v1", "docker.io/library/skill:v1", true},
 		{"quay.io/team/skill:v1", "quay.io/team/skill:v2", false},
 		{"quay.io/team/skill:v1", "quay.io/team/skill@" + testDigest, false},
@@ -334,6 +336,8 @@ func TestPolicyScope(t *testing.T) {
 		{"quay.io/team/skill@" + testDigest, "quay.io/team/skill@" + testDigest, "quay.io/team/skill"},
 		{"quay.io/team/skill:v1@" + testDigest, "quay.io/team/skill@" + testDigest, "quay.io/team/skill"},
 		{"localhost:5000/skill:v1", "localhost:5000/skill:v1", "localhost:5000/skill"},
+		// Normalized for completeness, although pull requires canonical
+		// references in libartifact today.
 		{"skill:v1", "docker.io/library/skill:v1", "docker.io/library/skill"},
 	} {
 		t.Run(tc.input, func(t *testing.T) {
