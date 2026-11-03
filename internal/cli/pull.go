@@ -69,8 +69,18 @@ Declare how to verify it:
 				return err
 			}
 
+			// Include tracked skills referencing the same image so a
+			// conflicting declaration fails here, before contacting the
+			// registry, instead of recording a manifest update refuses.
+			skills := []manifest.Skill{{Name: name, Image: imageRef, Trust: trustDecl}}
+			for _, skill := range m.Skills {
+				if skill.Name != name && skill.Trust.Declared() && store.SameImage(skill.Image, imageRef) {
+					skills = append(skills, skill)
+				}
+			}
+
 			s, err := store.NewWithOptions(storePath, store.StoreOptions{
-				Skills:                []manifest.Skill{{Name: name, Image: imageRef, Trust: trustDecl}},
+				Skills:                skills,
 				ManifestDir:           filepath.Dir(manifestPath),
 				InsecureSkipTLSVerify: !tlsVerify,
 			})

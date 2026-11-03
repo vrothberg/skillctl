@@ -152,6 +152,7 @@ load helpers
     echo legacy > "$legacy/counter.txt"
     push_artifact "$repository:v1" --files "$legacy"
     push_artifact "$repository:v2" --sign
+    push_artifact "$repository:v3" --files "$legacy"
     run_skillctl init
     [[ "$output" == *"Initialized skillctl project"* ]]
 
@@ -171,10 +172,17 @@ load helpers
     before=$(cat skillctl.yaml)
 
     # The pinned key covers the signed skill's references, not the
-    # repository: its unsigned tag is still refused.
-    run "$SKILLCTL" pull --name signed --tls-verify=false "$repository:v1"
+    # repository: an unsigned tag is still refused.
+    run "$SKILLCTL" pull --name signed --tls-verify=false "$repository:v3"
     [ "$status" -ne 0 ]
     [[ "$output" == *"A signature was required, but no signature exists"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+
+    # Reusing the key for the image tracked with trust: none conflicts.
+    run "$SKILLCTL" pull --name signed --tls-verify=false "$repository:v1"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"conflicting trust declarations for \"$repository:v1\": skills \"signed\""*"and \"legacy\" (trust: none)"* ]]
+    [[ "$output" != *"Pulling"* ]]
     [[ "$(cat skillctl.yaml)" == "$before" ]]
     [[ "$(cat .agents/skills/legacy/counter.txt)" == "legacy" ]]
     [[ "$(cat .agents/skills/signed/counter.txt)" == "1" ]]

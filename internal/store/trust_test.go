@@ -197,7 +197,7 @@ func TestWriteTrustConfigErrors(t *testing.T) {
 		{
 			// Skills pulling the same content must agree on trust.
 			"conflicting trust same image",
-			`conflicting trust declarations for "quay.io/example/skill:v1"`,
+			`conflicting trust declarations for "quay.io/example/skill:v1": skills "a" (trust: key:` + key + `) and "b" (trust: none)`,
 			[]manifest.Skill{
 				{Name: "a", Image: "quay.io/example/skill:v1", Trust: manifest.Trust{Key: key}},
 				{Name: "b", Image: "quay.io/example/skill:v1", Trust: manifest.Trust{None: true}},
@@ -302,6 +302,26 @@ func TestWriteTrustConfigMixedTrustSameRepo(t *testing.T) {
 	}
 	if !strings.Contains(string(regData), "quay.io/example/skill:\n        use-sigstore-attachments: true") {
 		t.Errorf("expected repository-wide sigstore attachments:\n%s", regData)
+	}
+}
+
+func TestSameImage(t *testing.T) {
+	for _, tc := range []struct {
+		a, b string
+		want bool
+	}{
+		{"quay.io/team/skill:v1", "quay.io/team/skill:v1", true},
+		{"quay.io/team/skill", "quay.io/team/skill:latest", true},
+		{"quay.io/team/skill:v1@" + testDigest, "quay.io/team/skill:v2@" + testDigest, true},
+		{"skill:v1", "docker.io/library/skill:v1", true},
+		{"quay.io/team/skill:v1", "quay.io/team/skill:v2", false},
+		{"quay.io/team/skill:v1", "quay.io/team/skill@" + testDigest, false},
+		{"quay.io/team/skill:v1", "quay.io/team/other:v1", false},
+		{":::invalid:::", ":::invalid:::", false},
+	} {
+		if got := SameImage(tc.a, tc.b); got != tc.want {
+			t.Errorf("SameImage(%q, %q) = %v, want %v", tc.a, tc.b, got, tc.want)
+		}
 	}
 }
 

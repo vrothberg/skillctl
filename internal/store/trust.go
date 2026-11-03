@@ -24,6 +24,7 @@ import (
 func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir string) (string, string, error) {
 	type scoped struct {
 		repository string
+		skill      string
 		trust      manifest.Trust
 	}
 	scopes := map[string]scoped{}
@@ -36,9 +37,10 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 			return "", "", fmt.Errorf("parsing image reference %q: %w", skill.Image, err)
 		}
 		if existing, ok := scopes[identity]; ok && existing.trust != skill.Trust {
-			return "", "", fmt.Errorf("conflicting trust declarations for %q: skills referencing the same image must declare the same trust", identity)
+			return "", "", fmt.Errorf("conflicting trust declarations for %q: skills %q (trust: %s) and %q (trust: %s) reference the same image and must declare the same trust",
+				identity, existing.skill, existing.trust, skill.Name, skill.Trust)
 		}
-		scopes[identity] = scoped{repository: repository, trust: skill.Trust}
+		scopes[identity] = scoped{repository: repository, skill: skill.Name, trust: skill.Trust}
 	}
 
 	policy := policyConfig{
@@ -82,6 +84,14 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 	}
 
 	return writeVerificationConfig(storePath, policy, registries)
+}
+
+// SameImage reports whether two references share a policy scope, so skills
+// using them must declare the same trust. Unparsable references never match.
+func SameImage(a, b string) bool {
+	scopeA, _, errA := policyScope(a)
+	scopeB, _, errB := policyScope(b)
+	return errA == nil && errB == nil && scopeA == scopeB
 }
 
 // policyScope returns the policy identity of the reference skillctl pulls,
