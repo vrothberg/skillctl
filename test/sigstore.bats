@@ -142,3 +142,48 @@ load helpers
     [ -f .agents/skills/skill/SKILL.md ]
     grep -Fq "image: $image" skillctl.yaml
 }
+
+@test "skills from one repository keep their own trust on pull and update" {
+    start_registry
+    local repository="$REGISTRY_HOST/skill"
+    # Distinct content keeps the v2 signature from covering v1's digest.
+    local legacy="$TEST_WORKDIR/legacy-skill"
+    cp -a "$EXAMPLE_SKILL_DIR" "$legacy"
+    echo legacy > "$legacy/counter.txt"
+    push_artifact "$repository:v1" --files "$legacy"
+    push_artifact "$repository:v2" --sign
+    push_artifact "$repository:v3" --files "$legacy"
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+
+    run_skillctl pull --trust none --name legacy --tls-verify=false "$repository:v1"
+    [[ "$output" == *"Pulled legacy"* ]]
+    run_skillctl pull --trust "key=$SIGSTORE_PUB" --name signed --tls-verify=false "$repository:v2"
+    [[ "$output" == *"Pulled signed"* ]]
+    run_skillctl list
+    [[ "$output" == *"legacy"*"$repository:v1"*"none"* ]]
+    [[ "$output" == *"signed"*"$repository:v2"*"key:$SIGSTORE_PUB"* ]]
+
+    run_skillctl update --force --tls-verify=false
+    [[ "$output" == *"Updated legacy"* ]]
+    [[ "$output" == *"Updated signed"* ]]
+    [[ "$output" == *"Updated 2 of 2 skill(s)"* ]]
+    local before
+    before=$(cat skillctl.yaml)
+
+    # The pinned key covers the signed skill's references, not the
+    # repository: an unsigned tag is still refused.
+    run "$SKILLCTL" pull --name signed --tls-verify=false "$repository:v3"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"A signature was required, but no signature exists"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+
+    # Reusing the key for the image tracked with trust: none conflicts.
+    run "$SKILLCTL" pull --name signed --tls-verify=false "$repository:v1"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"conflicting trust declarations for \"$repository:v1\": skills \"signed\""*"and \"legacy\" (trust: none)"* ]]
+    [[ "$output" != *"Pulling"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+    [[ "$(cat .agents/skills/legacy/counter.txt)" == "legacy" ]]
+    [[ "$(cat .agents/skills/signed/counter.txt)" == "1" ]]
+}

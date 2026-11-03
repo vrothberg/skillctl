@@ -98,7 +98,11 @@ the underlying mechanics to the existing libraries wherever practical.
 Trust lives in the manifest, not on the machine: every skill declares how it
 is verified (`trust: {key: ...}` for a pinned public key, `trust: none` for
 an explicit opt-out), and skills without a declaration are refused by both
-`pull` and `update`. At pull time skillctl synthesizes the `containers/image`
+`pull` and `update`. Declarations are scoped to each skill's image
+reference, not to its repository, so skills from one repository may declare
+different trust. Skills referencing the same image, including the same
+digest under different tags, must agree, and both commands reject a
+conflict before contacting a registry. At pull time skillctl synthesizes the `containers/image`
 signature policy and the `registries.d` configuration from the manifest's
 trust declarations in a private temporary directory for each operation,
 removed when the operation finishes. Verification files are never shared

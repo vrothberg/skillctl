@@ -1,7 +1,10 @@
 package manifest
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,11 +24,10 @@ type Manifest struct {
 }
 
 type Skill struct {
-	Name        string `yaml:"name"`
-	Image       string `yaml:"image"`
-	Digest      string `yaml:"digest"`
-	ExtractPath string `yaml:"extractPath"`
-	Trust       Trust  `yaml:"trust,omitempty"`
+	Name   string `yaml:"name"`
+	Image  string `yaml:"image"`
+	Digest string `yaml:"digest"`
+	Trust  Trust  `yaml:"trust,omitempty"`
 }
 
 // Trust declares how a skill's signatures are verified when it is pulled.
@@ -128,15 +130,29 @@ func Load(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("reading manifest: %w", err)
 	}
 
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
 	m := &Manifest{}
-	if err := yaml.Unmarshal(data, m); err != nil {
+	if err := decoder.Decode(m); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("manifest is empty")
+		}
 		return nil, fmt.Errorf("parsing manifest: %w", err)
 	}
 
+	if m.APIVersion != APIVersion {
+		return nil, fmt.Errorf("unsupported manifest apiVersion %q (expected %q)", m.APIVersion, APIVersion)
+	}
+
+	seen := make(map[string]struct{}, len(m.Skills))
 	for _, s := range m.Skills {
 		if err := ValidateSkillName(s.Name); err != nil {
 			return nil, fmt.Errorf("invalid skill in manifest: %w", err)
 		}
+		if _, duplicate := seen[s.Name]; duplicate {
+			return nil, fmt.Errorf("duplicate skill %q in manifest", s.Name)
+		}
+		seen[s.Name] = struct{}{}
 	}
 
 	return m, nil

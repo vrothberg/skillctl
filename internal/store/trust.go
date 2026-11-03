@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/vrothberg/skillctl/internal/manifest"
+	"go.podman.io/image/v5/docker/policyconfiguration"
 	"go.podman.io/image/v5/docker/reference"
 )
 
@@ -16,25 +17,30 @@ import (
 // any ambient system configuration: skillctl's trust model lives in the
 // manifest, not in /etc/containers.
 //
-// The generated policy requires a valid sigstore signature for every
-// repository with a pinned key, accepts the repositories of skills opted out
-// with "none", and rejects everything else.
+// Trust is scoped to each skill's image reference. The generated policy
+// requires a valid sigstore signature for references with a pinned key,
+// accepts references opted out with "none", and rejects everything else.
+// Skills from the same repository may therefore declare different trust.
 func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir string) (string, string, error) {
-	// Merge trust per repository: the containers/image policy granularity
-	// is per repository, so skills sharing a repository must agree.
-	scopes := map[string]manifest.Trust{}
+	type scoped struct {
+		repository string
+		skill      string
+		trust      manifest.Trust
+	}
+	scopes := map[string]scoped{}
 	for _, skill := range skills {
 		if !skill.Trust.Declared() {
 			return "", "", fmt.Errorf("skill %q has no trust declaration", skill.Name)
 		}
-		scope, err := repoScope(skill.Image)
+		identity, repository, err := policyScope(skill.Image)
 		if err != nil {
 			return "", "", fmt.Errorf("parsing image reference %q: %w", skill.Image, err)
 		}
-		if existing, ok := scopes[scope]; ok && existing != skill.Trust {
-			return "", "", fmt.Errorf("conflicting trust declarations for repository %q: skills sharing a repository must declare the same trust", scope)
+		if existing, ok := scopes[identity]; ok && existing.trust != skill.Trust {
+			return "", "", fmt.Errorf("conflicting trust declarations for %q: skills %q (trust: %s) and %q (trust: %s) reference the same image and must declare the same trust",
+				identity, existing.skill, existing.trust, skill.Name, skill.Trust)
 		}
-		scopes[scope] = skill.Trust
+		scopes[identity] = scoped{repository: repository, skill: skill.Name, trust: skill.Trust}
 	}
 
 	policy := policyConfig{
@@ -43,7 +49,8 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 	}
 	registries := registriesConfig{Docker: map[string]registryNamespace{}}
 
-	for scope, trust := range scopes {
+	for scope, entry := range scopes {
+		trust := entry.trust
 		switch {
 		case trust.Key != "":
 			keyPath, err := resolveKeyPath(trust.Key, manifestDir)
@@ -51,7 +58,7 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 				return "", "", err
 			}
 			if _, err := os.Stat(keyPath); err != nil {
-				return "", "", fmt.Errorf("trust key %q for repository %q: %w", trust.Key, scope, err)
+				return "", "", fmt.Errorf("trust key %q for %q: %w", trust.Key, scope, err)
 			}
 			rule, err := json.Marshal(map[string]string{
 				"type":    "sigstoreSigned",
@@ -62,9 +69,11 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 			}
 			policy.Transports["docker"][scope] = []json.RawMessage{rule}
 			// Only key verification needs the registry's sigstore
-			// attachments; lookaside signatures are not used.
+			// attachments; lookaside signatures are not used. The
+			// registries.d lookup is per repository, and fetching
+			// attachments is harmless for opted-out references.
 			attachments := true
-			registries.Docker[scope] = registryNamespace{UseSigstoreAttachments: &attachments}
+			registries.Docker[entry.repository] = registryNamespace{UseSigstoreAttachments: &attachments}
 		case trust.None:
 			rule, err := json.Marshal(map[string]string{"type": "insecureAcceptAnything"})
 			if err != nil {
@@ -77,14 +86,34 @@ func writeTrustConfig(storePath string, skills []manifest.Skill, manifestDir str
 	return writeVerificationConfig(storePath, policy, registries)
 }
 
-// repoScope returns the policy namespace of an image reference: its
-// repository without tag or digest, e.g. "quay.io/vrothberg/skill".
-func repoScope(imageRef string) (string, error) {
-	ref, err := reference.ParseNormalizedNamed(imageRef)
+// SameImage reports whether two references share a policy scope, so skills
+// using them must declare the same trust. Unparsable references never match.
+func SameImage(a, b string) bool {
+	scopeA, _, errA := policyScope(a)
+	scopeB, _, errB := policyScope(b)
+	return errA == nil && errB == nil && scopeA == scopeB
+}
+
+// policyScope returns the policy identity of the reference skillctl pulls,
+// e.g. "quay.io/team/skill:v1" or "quay.io/team/skill@sha256:...", and its
+// repository. Like the pull path, it drops the tag of a reference carrying a
+// digest and defaults bare names to "latest", then asks containers/image for
+// the identity its policy lookup matches exactly.
+func policyScope(imageRef string) (string, string, error) {
+	normalized, err := normalizeImageReference(imageRef)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return reference.Domain(ref) + "/" + reference.Path(ref), nil
+	ref, err := reference.ParseNormalizedNamed(normalized)
+	if err != nil {
+		return "", "", err
+	}
+	ref = reference.TagNameOnly(ref)
+	identity, err := policyconfiguration.DockerReferenceIdentity(ref)
+	if err != nil {
+		return "", "", err
+	}
+	return identity, ref.Name(), nil
 }
 
 // resolveKeyPath resolves a trust key path against the manifest directory,

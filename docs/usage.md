@@ -107,18 +107,17 @@ skills:
     - name: translator
       image: quay.io/redhat/skills/translator:1.0
       digest: sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
-      extractPath: .agents/skills/translator
       trust:
           key: keys/translator.pub
 
     - name: skillctl-example-skill
       image: quay.io/vrothberg/skillctl-example-skill:v1.0.0
       digest: sha256:a02ed76caf2de9d1ea33328d9ff0810a87ed37f6721baf9276d4d4023e346447
-      extractPath: .agents/skills/skillctl-example-skill
       trust: none
 ```
 
-The `image` field determines what is pulled. The separate `digest` field records the content retrieved by the last successful pull or update and is used to detect changes; it does not constrain future pulls.
+The `image` field determines what is pulled. Image references must be fully qualified, including the registry; short names such as `busybox:v1` are rejected instead of being resolved against Docker Hub.
+The separate `digest` field records the content retrieved by the last successful pull or update and is used to detect changes; it does not constrain future pulls.
 If a tag points to new content, `skillctl update` retrieves that content and updates the recorded digest, even when the image reference in the manifest has not changed.
 
 To pin immutable content, use a digest-qualified image reference instead of a tag. For example, using the digest from the manifest above:
@@ -229,7 +228,7 @@ Pulling a new version of a tracked skill without `--trust` reuses the declaratio
 
 Verification is derived from the manifest; machine-wide configuration such as `/etc/containers/policy.json` is not consulted. Commit the public verification keys next to `skillctl.yaml` so local pulls and CI use the same trust declarations.
 
-Trust is scoped per repository: skills sharing an OCI repository must declare the same trust.
+Each declaration applies to its skill's image reference, not to the whole repository. Skills from the same repository can declare different trust, for example `trust: none` for an old unsigned tag next to a skill pinned to the publisher's key. Skills referencing the same image, including the same digest under different tags, must declare the same trust. `pull` and `update` reject a conflicting declaration before contacting the registry, naming both skills.
 
 ## Store
 

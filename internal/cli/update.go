@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 
@@ -21,12 +20,12 @@ func updateCommand() *cobra.Command {
 		Short: "Pull and extract all skills listed in the manifest",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
+			m, err := loadManifest(manifestPath)
 			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+				return err
 			}
 
 			if len(m.Skills) == 0 {
@@ -40,6 +39,9 @@ func updateCommand() *cobra.Command {
 			for _, skill := range m.Skills {
 				if !skill.Trust.Declared() {
 					return fmt.Errorf("skill %q has no trust declaration in the manifest (re-pull it with --trust or add a trust entry to %s)", skill.Name, manifest.DefaultFile)
+				}
+				if err := store.ValidateImageReference(skill.Image); err != nil {
+					return fmt.Errorf("skill %q has an invalid image reference %q: %w", skill.Name, skill.Image, err)
 				}
 			}
 
@@ -58,7 +60,7 @@ func updateCommand() *cobra.Command {
 			}
 			defer func() { _ = s.Close() }()
 
-			return store.WithLock(storePath, func() error {
+			return store.WithLock(ctx, storePath, func() error {
 				var updated int
 				for _, skill := range m.Skills {
 					fmt.Printf("Checking %s ...\n", skill.Name)
@@ -78,11 +80,10 @@ func updateCommand() *cobra.Command {
 					}
 
 					m.AddOrUpdate(manifest.Skill{
-						Name:        skill.Name,
-						Image:       skill.Image,
-						Digest:      d.String(),
-						ExtractPath: manifest.SkillExtractPath(skill.Name),
-						Trust:       skill.Trust,
+						Name:   skill.Name,
+						Image:  skill.Image,
+						Digest: d.String(),
+						Trust:  skill.Trust,
 					})
 
 					if err := m.Save(manifestPath); err != nil {

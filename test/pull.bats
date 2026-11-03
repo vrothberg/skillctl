@@ -16,10 +16,14 @@ load helpers
     [[ "$output" == *"Initialized skillctl project"* ]]
     run "$SKILLCTL" pull --trust none ':::invalid:::'
     [ "$status" -ne 0 ]
-    [[ "$output" == *"parsing image reference"* ]]
+    [[ "$output" == *"invalid image reference"* ]]
     run "$SKILLCTL" pull --trust none --name custom-name ':::invalid:::'
     [ "$status" -ne 0 ]
-    [[ "$output" == *"parsing image reference"* ]]
+    [[ "$output" == *"invalid image reference"* ]]
+    run "$SKILLCTL" pull --trust none busybox:v1
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'invalid image reference "busybox:v1": repository name must be fully qualified'* ]]
+    [[ "$output" != *"Pulling"* ]]
     run "$SKILLCTL" pull --name ../../etc/evil "$image"
     [ "$status" -ne 0 ]
     [[ "$output" == *"path separators"* ]]
@@ -97,4 +101,27 @@ load helpers
     run_skillctl list
     [[ "$output" == *"$EXAMPLE_IMAGE:v1.0.1"* ]]
     [[ "$(printf '%s\n' "$output" | grep -c skillctl-example-skill)" == "1" ]]
+}
+
+@test "pull rejects trust conflicting with a tracked skill for the same image" {
+    run_skillctl init
+    [[ "$output" == *"Initialized skillctl project"* ]]
+    cat > skillctl.yaml <<YAML
+apiVersion: v1
+skills:
+    - name: first
+      image: quay.io/example/skill:v1
+      digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      trust: none
+YAML
+    local before
+    before=$(cat skillctl.yaml)
+
+    run "$SKILLCTL" pull --trust "key=$SIGSTORE_PUB" --name second quay.io/example/skill:v1
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'conflicting trust declarations for "quay.io/example/skill:v1": skills "second" (trust: key:'*') and "first" (trust: none)'* ]]
+    [[ "$output" != *"Pulling"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
+    [ ! -e .agents/skills/second ]
+    [ ! -e "$SKILLCTL_STORE" ]
 }

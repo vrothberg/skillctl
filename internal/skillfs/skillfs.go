@@ -3,7 +3,9 @@ package skillfs
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -51,8 +53,26 @@ func Install(target string, extract func(*os.Root) error) error {
 	if err := extract(stageRoot); err != nil {
 		return err
 	}
-	if err := root.RemoveAll(target); err != nil {
-		return fmt.Errorf("removing old skill files: %w", err)
+	old := filepath.Join(parent, ".skillctl-old-"+rand.Text())
+	hadTarget := false
+	err = root.Rename(target, old)
+	switch {
+	case err == nil:
+		hadTarget = true
+	case !errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("moving old skill files aside: %w", err)
 	}
-	return root.Rename(stage, target)
+	if err := root.Rename(stage, target); err != nil {
+		if hadTarget {
+			// Best effort: keep the previous skill if the replacement fails.
+			_ = root.Rename(old, target)
+		}
+		return fmt.Errorf("installing skill files: %w", err)
+	}
+	if hadTarget {
+		// The new skill is installed; a leftover backup directory would be
+		// hidden and harmless, so its removal is best effort.
+		_ = root.RemoveAll(old)
+	}
+	return nil
 }

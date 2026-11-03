@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -27,12 +26,16 @@ func pullCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			imageRef := args[0]
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
+			m, err := loadManifest(manifestPath)
 			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+				return err
+			}
+
+			if err := store.ValidateImageReference(imageRef); err != nil {
+				return fmt.Errorf("invalid image reference %q: %w", imageRef, err)
 			}
 
 			if name == "" {
@@ -70,8 +73,18 @@ Declare how to verify it:
 				return err
 			}
 
+			// Include tracked skills referencing the same image so a
+			// conflicting declaration fails here, before contacting the
+			// registry, instead of recording a manifest update refuses.
+			skills := []manifest.Skill{{Name: name, Image: imageRef, Trust: trustDecl}}
+			for _, skill := range m.Skills {
+				if skill.Name != name && skill.Trust.Declared() && store.SameImage(skill.Image, imageRef) {
+					skills = append(skills, skill)
+				}
+			}
+
 			s, err := store.NewWithOptions(storePath, store.StoreOptions{
-				Skills:                []manifest.Skill{{Name: name, Image: imageRef, Trust: trustDecl}},
+				Skills:                skills,
 				ManifestDir:           filepath.Dir(manifestPath),
 				InsecureSkipTLSVerify: !tlsVerify,
 			})
@@ -80,7 +93,7 @@ Declare how to verify it:
 			}
 			defer func() { _ = s.Close() }()
 
-			return store.WithLock(storePath, func() error {
+			return store.WithLock(ctx, storePath, func() error {
 				fmt.Printf("Pulling %s ...\n", imageRef)
 				d, err := s.Pull(ctx, imageRef)
 				if err != nil {
@@ -88,11 +101,10 @@ Declare how to verify it:
 				}
 
 				pulled := manifest.Skill{
-					Name:        name,
-					Image:       imageRef,
-					Digest:      d.String(),
-					ExtractPath: manifest.SkillExtractPath(name),
-					Trust:       trustDecl,
+					Name:   name,
+					Image:  imageRef,
+					Digest: d.String(),
+					Trust:  trustDecl,
 				}
 				if !force {
 					if existing := m.Find(name); existing != nil && existing.Digest == d.String() {

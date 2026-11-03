@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+func TestValidateImageReference(t *testing.T) {
+	const digestSuffix = "@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+	for _, ref := range []string{
+		"quay.io/team/skill",
+		"quay.io/team/skill:v1",
+		"quay.io/team/skill" + digestSuffix,
+		"quay.io/team/skill:v1" + digestSuffix,
+		"localhost:5000/skill:v1",
+	} {
+		if err := ValidateImageReference(ref); err != nil {
+			t.Errorf("%q: unexpected error: %v", ref, err)
+		}
+	}
+
+	for _, ref := range []string{
+		"fedora",
+		"fedora:v1",
+		"fedora" + digestSuffix,
+		"$$garbage",
+	} {
+		if err := ValidateImageReference(ref); err == nil {
+			t.Errorf("%q: expected error for non-canonical reference", ref)
+		}
+	}
+}
+
 func TestNormalizeImageReference(t *testing.T) {
 	const digestSuffix = "@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 

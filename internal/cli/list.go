@@ -17,9 +17,9 @@ func listCommand() *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
+			m, err := loadManifest(manifestPath)
 			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+				return err
 			}
 
 			if len(m.Skills) == 0 {
@@ -36,7 +36,7 @@ func listCommand() *cobra.Command {
 				if len(shortDigest) > 19 {
 					shortDigest = shortDigest[:19]
 				}
-				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", s.Name, s.Image, shortDigest, s.ExtractPath, s.Trust.String()); err != nil {
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", s.Name, s.Image, shortDigest, manifest.SkillExtractPath(s.Name), s.Trust.String()); err != nil {
 					return err
 				}
 			}

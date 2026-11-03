@@ -41,7 +41,7 @@ func Root() *cobra.Command {
 func withProjectLock(cmd *cobra.Command) *cobra.Command {
 	run := cmd.RunE
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return locking.WithLock(manifest.DefaultFile+".lock", func() error {
+		return locking.WithLock(cmd.Context(), manifest.DefaultFile+".lock", func() error {
 			return run(cmd, args)
 		})
 	}
