@@ -229,7 +229,7 @@ Pulling a new version of a tracked skill without `--trust` reuses the declaratio
 
 Verification is derived from the manifest; machine-wide configuration such as `/etc/containers/policy.json` is not consulted. Commit the public verification keys next to `skillctl.yaml` so local pulls and CI use the same trust declarations.
 
-Trust is scoped per repository: skills sharing an OCI repository must declare the same trust.
+Each declaration applies to its skill's image reference, not to the whole repository. Skills from the same repository can declare different trust, for example `trust: none` for an old unsigned tag next to a skill pinned to the publisher's key. Skills referencing the same image, including the same digest under different tags, must declare the same trust.
 
 ## Store
 
