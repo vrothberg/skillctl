@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -27,7 +26,7 @@ func pullCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			imageRef := args[0]
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
 			m, err := manifest.Load(manifestPath)

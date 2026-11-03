@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 
@@ -21,7 +20,7 @@ func updateCommand() *cobra.Command {
 		Short: "Pull and extract all skills listed in the manifest",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
 			m, err := manifest.Load(manifestPath)
