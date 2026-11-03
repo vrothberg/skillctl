@@ -23,9 +23,9 @@ func updateCommand() *cobra.Command {
 			ctx := cmd.Context()
 
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
+			m, err := loadManifest(manifestPath)
 			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+				return err
 			}
 
 			if len(m.Skills) == 0 {
@@ -60,7 +60,7 @@ func updateCommand() *cobra.Command {
 			}
 			defer func() { _ = s.Close() }()
 
-			return store.WithLock(storePath, func() error {
+			return store.WithLock(ctx, storePath, func() error {
 				var updated int
 				for _, skill := range m.Skills {
 					fmt.Printf("Checking %s ...\n", skill.Name)

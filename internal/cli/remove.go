@@ -19,6 +19,7 @@ func removeCommand() *cobra.Command {
 		Short:   "Remove a skill from the manifest and delete its extracted files",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			name := args[0]
 
 			if err := manifest.ValidateSkillName(name); err != nil {
@@ -30,11 +31,11 @@ func removeCommand() *cobra.Command {
 				return err
 			}
 
-			return store.WithLock(storePath, func() error {
+			return store.WithLock(ctx, storePath, func() error {
 				manifestPath := filepath.Join(".", manifest.DefaultFile)
-				m, err := manifest.Load(manifestPath)
+				m, err := loadManifest(manifestPath)
 				if err != nil {
-					return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+					return err
 				}
 
 				if !m.Remove(name) {

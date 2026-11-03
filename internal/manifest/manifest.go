@@ -1,7 +1,10 @@
 package manifest
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -127,8 +130,13 @@ func Load(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("reading manifest: %w", err)
 	}
 
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
 	m := &Manifest{}
-	if err := yaml.Unmarshal(data, m); err != nil {
+	if err := decoder.Decode(m); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("manifest is empty")
+		}
 		return nil, fmt.Errorf("parsing manifest: %w", err)
 	}
 

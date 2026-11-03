@@ -14,6 +14,16 @@ load helpers
     run_skillctl update
     [[ "$output" == "No skills in manifest" ]]
 
+    # Existing manifests with problems do not suggest init.
+    cat > skillctl.yaml <<EOF
+apiVersion: v2
+skills: []
+EOF
+    run "$SKILLCTL" update
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'loading manifest: unsupported manifest apiVersion "v2"'* ]]
+    [[ "$output" != *"skillctl init"* ]]
+
     # No registry is needed to reject a legacy entry without trust.
     cat > skillctl.yaml <<EOF
 apiVersion: v1

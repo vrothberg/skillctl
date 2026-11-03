@@ -17,9 +17,9 @@ func listCommand() *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
+			m, err := loadManifest(manifestPath)
 			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+				return err
 			}
 
 			if len(m.Skills) == 0 {

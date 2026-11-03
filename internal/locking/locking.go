@@ -2,6 +2,7 @@
 package locking
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,9 @@ import (
 	"github.com/nightlyone/lockfile"
 )
 
-func WithLock(path string, fn func() error) error {
+// WithLock waits for the PID-file lock at path, giving up when ctx is done,
+// and runs fn while holding it.
+func WithLock(ctx context.Context, path string, fn func() error) error {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return err
@@ -22,11 +25,24 @@ func WithLock(path string, fn func() error) error {
 	if err != nil {
 		return fmt.Errorf("creating lock file: %w", err)
 	}
-	for err := lock.TryLock(); err != nil; err = lock.TryLock() {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := lock.TryLock()
+		if err == nil {
+			break
+		}
 		if err != lockfile.ErrBusy {
 			return fmt.Errorf("acquiring lock: %w", err)
 		}
-		time.Sleep(10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
 	}
 	defer func() { _ = lock.Unlock() }()
 	return fn()

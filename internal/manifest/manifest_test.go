@@ -239,6 +239,33 @@ func TestLoadRejectsDuplicateSkillNames(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnknownFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.yaml")
+	doc := "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n      digset: sha256:abc\n"
+	if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), "field digset not found") {
+		t.Errorf("expected unknown field error, got %v", err)
+	}
+}
+
+func TestLoadRejectsEmptyManifest(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.yaml")
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), "manifest is empty") {
+		t.Errorf("expected empty manifest error, got %v", err)
+	}
+}
+
 func TestLoadRejectsInvalidSkillName(t *testing.T) {
 	tests := []struct {
 		name      string

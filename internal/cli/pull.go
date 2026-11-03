@@ -29,9 +29,9 @@ func pullCommand() *cobra.Command {
 			ctx := cmd.Context()
 
 			manifestPath := filepath.Join(".", manifest.DefaultFile)
-			m, err := manifest.Load(manifestPath)
+			m, err := loadManifest(manifestPath)
 			if err != nil {
-				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
+				return err
 			}
 
 			if err := store.ValidateImageReference(imageRef); err != nil {
@@ -93,7 +93,7 @@ Declare how to verify it:
 			}
 			defer func() { _ = s.Close() }()
 
-			return store.WithLock(storePath, func() error {
+			return store.WithLock(ctx, storePath, func() error {
 				fmt.Printf("Pulling %s ...\n", imageRef)
 				d, err := s.Pull(ctx, imageRef)
 				if err != nil {

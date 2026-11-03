@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -22,7 +23,7 @@ func TestStoresKeepIndependentTrust(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = trusted.Close() })
-	err = WithLock(storePath, func() error {
+	err = WithLock(context.Background(), storePath, func() error {
 		other, err := NewWithOptions(storePath, StoreOptions{Skills: []manifest.Skill{
 			{Name: "skill", Image: "quay.io/example/skill:v2", Trust: manifest.Trust{None: true}},
 		}})

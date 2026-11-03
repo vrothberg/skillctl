@@ -106,8 +106,8 @@ func (s *Store) Close() error {
 	return os.RemoveAll(s.trustDir)
 }
 
-func WithLock(storePath string, fn func() error) error {
-	return locking.WithLock(filepath.Join(storePath, "skillctl.lock"), fn)
+func WithLock(ctx context.Context, storePath string, fn func() error) error {
+	return locking.WithLock(ctx, filepath.Join(storePath, "skillctl.lock"), fn)
 }
 
 func (s *Store) Pull(ctx context.Context, imageRef string) (digest.Digest, error) {
