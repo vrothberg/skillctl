@@ -40,6 +40,9 @@ func updateCommand() *cobra.Command {
 				if !skill.Trust.Declared() {
 					return fmt.Errorf("skill %q has no trust declaration in the manifest (re-pull it with --trust or add a trust entry to %s)", skill.Name, manifest.DefaultFile)
 				}
+				if err := store.ValidateImageReference(skill.Image); err != nil {
+					return fmt.Errorf("skill %q has an invalid image reference %q: %w", skill.Name, skill.Image, err)
+				}
 			}
 
 			storePath, err := store.Path(storeFlag)
@@ -77,11 +80,10 @@ func updateCommand() *cobra.Command {
 					}
 
 					m.AddOrUpdate(manifest.Skill{
-						Name:        skill.Name,
-						Image:       skill.Image,
-						Digest:      d.String(),
-						ExtractPath: manifest.SkillExtractPath(skill.Name),
-						Trust:       skill.Trust,
+						Name:   skill.Name,
+						Image:  skill.Image,
+						Digest: d.String(),
+						Trust:  skill.Trust,
 					})
 
 					if err := m.Save(manifestPath); err != nil {

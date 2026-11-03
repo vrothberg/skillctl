@@ -226,24 +226,24 @@ func TestWriteTrustConfigErrors(t *testing.T) {
 }
 
 func TestPath(t *testing.T) {
-	t.Setenv(StoreEnvVar, "/from-env")
+	t.Setenv(StoreEnvVar, "/from-env/")
 
 	// The flag wins over the environment variable.
-	got, err := Path("/from-flag")
+	got, err := Path("/from-flag/")
 	if err != nil {
 		t.Fatalf("Path: %v", err)
 	}
 	if got != "/from-flag" {
-		t.Errorf("expected flag path to win, got %q", got)
+		t.Errorf("expected cleaned flag path to win, got %q", got)
 	}
 
-	// The environment variable wins over the default.
+	// The environment variable wins over the default and is cleaned.
 	got, err = Path("")
 	if err != nil {
 		t.Fatalf("Path: %v", err)
 	}
 	if got != "/from-env" {
-		t.Errorf("expected env path, got %q", got)
+		t.Errorf("expected cleaned env path, got %q", got)
 	}
 
 	// Without flag and environment variable, the default is used.

@@ -34,6 +34,10 @@ func pullCommand() *cobra.Command {
 				return fmt.Errorf("loading manifest (run 'skillctl init' first): %w", err)
 			}
 
+			if err := store.ValidateImageReference(imageRef); err != nil {
+				return fmt.Errorf("invalid image reference %q: %w", imageRef, err)
+			}
+
 			if name == "" {
 				name, err = skillName(imageRef)
 				if err != nil {
@@ -97,11 +101,10 @@ Declare how to verify it:
 				}
 
 				pulled := manifest.Skill{
-					Name:        name,
-					Image:       imageRef,
-					Digest:      d.String(),
-					ExtractPath: manifest.SkillExtractPath(name),
-					Trust:       trustDecl,
+					Name:   name,
+					Image:  imageRef,
+					Digest: d.String(),
+					Trust:  trustDecl,
 				}
 				if !force {
 					if existing := m.Find(name); existing != nil && existing.Digest == d.String() {

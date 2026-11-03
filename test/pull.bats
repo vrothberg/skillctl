@@ -16,10 +16,14 @@ load helpers
     [[ "$output" == *"Initialized skillctl project"* ]]
     run "$SKILLCTL" pull --trust none ':::invalid:::'
     [ "$status" -ne 0 ]
-    [[ "$output" == *"parsing image reference"* ]]
+    [[ "$output" == *"invalid image reference"* ]]
     run "$SKILLCTL" pull --trust none --name custom-name ':::invalid:::'
     [ "$status" -ne 0 ]
-    [[ "$output" == *"parsing image reference"* ]]
+    [[ "$output" == *"invalid image reference"* ]]
+    run "$SKILLCTL" pull --trust none busybox:v1
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'invalid image reference "busybox:v1": repository name must be fully qualified'* ]]
+    [[ "$output" != *"Pulling"* ]]
     run "$SKILLCTL" pull --name ../../etc/evil "$image"
     [ "$status" -ne 0 ]
     [[ "$output" == *"path separators"* ]]
@@ -108,7 +112,6 @@ skills:
     - name: first
       image: quay.io/example/skill:v1
       digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-      extractPath: .agents/skills/first
       trust: none
 YAML
     local before

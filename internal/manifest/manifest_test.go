@@ -25,10 +25,9 @@ func TestSaveAndLoad(t *testing.T) {
 
 	m := New()
 	m.AddOrUpdate(Skill{
-		Name:        "translator",
-		Image:       "quay.io/redhat/skills/translator:1.0",
-		Digest:      "sha256:abc123",
-		ExtractPath: ".agents/skills/translator",
+		Name:   "translator",
+		Image:  "quay.io/redhat/skills/translator:1.0",
+		Digest: "sha256:abc123",
 	})
 
 	if err := m.Save(path); err != nil {
@@ -210,9 +209,39 @@ func TestLoadNonexistent(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnsupportedAPIVersion(t *testing.T) {
+	for _, apiVersion := range []string{"", "v2"} {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "test.yaml")
+		doc := "apiVersion: " + apiVersion + "\nskills: []\n"
+		if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := Load(path)
+		if err == nil || !strings.Contains(err.Error(), "unsupported manifest apiVersion") {
+			t.Errorf("apiVersion %q: expected unsupported apiVersion error, got %v", apiVersion, err)
+		}
+	}
+}
+
+func TestLoadRejectsDuplicateSkillNames(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.yaml")
+	doc := "apiVersion: v1\nskills:\n    - name: a\n      image: quay.io/example/skill:v1\n    - name: a\n      image: quay.io/example/skill:v2\n"
+	if err := os.WriteFile(path, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), `duplicate skill "a"`) {
+		t.Errorf("expected duplicate skill error, got %v", err)
+	}
+}
+
 func TestLoadRejectsInvalidSkillName(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		skillName string
 	}{
 		{"path traversal", "../../etc/evil"},

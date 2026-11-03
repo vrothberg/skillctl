@@ -14,6 +14,7 @@ import (
 	"go.podman.io/common/pkg/libartifact"
 	"go.podman.io/image/v5/docker/reference"
 	"go.podman.io/image/v5/oci/layout"
+	"go.podman.io/image/v5/pkg/shortnames"
 	"go.podman.io/image/v5/types"
 )
 
@@ -56,7 +57,7 @@ func Path(flagValue string) (string, error) {
 		return filepath.Clean(flagValue), nil
 	}
 	if env := os.Getenv(StoreEnvVar); env != "" {
-		return env, nil
+		return filepath.Clean(env), nil
 	}
 	return DefaultStorePath()
 }
@@ -175,6 +176,20 @@ func (s *Store) Extract(ctx context.Context, imageRef string, targetDir string) 
 		return nil
 	}); err != nil {
 		return fmt.Errorf("installing %q to %q: %w", imageRef, targetDir, err)
+	}
+	return nil
+}
+
+// ValidateImageReference rejects references that libartifact cannot pull,
+// notably short names that containers/image would otherwise resolve against an
+// implicit default registry. Rejecting them here gives an actionable error
+// before any registry is contacted, instead of failing deep inside the pull.
+func ValidateImageReference(imageRef string) error {
+	if _, err := reference.Parse(imageRef); err != nil {
+		return err
+	}
+	if shortnames.IsShortName(imageRef) {
+		return fmt.Errorf("repository name must be fully qualified")
 	}
 	return nil
 }

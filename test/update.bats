@@ -20,7 +20,6 @@ apiVersion: v1
 skills:
     - name: legacy
       image: quay.io/example/skill:v1
-      extractPath: .agents/skills/legacy
 EOF
     mkdir .agents/skills/legacy
     echo 'local contents' > .agents/skills/legacy/counter.txt
@@ -31,6 +30,22 @@ EOF
     [[ "$output" == *"no trust declaration"* ]]
     [[ "$(cat skillctl.yaml)" == "$before" ]]
     [[ "$(cat .agents/skills/legacy/counter.txt)" == "local contents" ]]
+    [ ! -e "$SKILLCTL_STORE" ]
+
+    # Short image references are rejected before any registry is contacted.
+    cat > skillctl.yaml <<EOF
+apiVersion: v1
+skills:
+    - name: short
+      image: short:v1
+      trust: none
+EOF
+    before=$(cat skillctl.yaml)
+    run "$SKILLCTL" update
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'skill "short" has an invalid image reference "short:v1": repository name must be fully qualified'* ]]
+    [[ "$output" != *"Checking"* ]]
+    [[ "$(cat skillctl.yaml)" == "$before" ]]
     [ ! -e "$SKILLCTL_STORE" ]
 }
 

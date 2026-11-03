@@ -21,11 +21,10 @@ type Manifest struct {
 }
 
 type Skill struct {
-	Name        string `yaml:"name"`
-	Image       string `yaml:"image"`
-	Digest      string `yaml:"digest"`
-	ExtractPath string `yaml:"extractPath"`
-	Trust       Trust  `yaml:"trust,omitempty"`
+	Name   string `yaml:"name"`
+	Image  string `yaml:"image"`
+	Digest string `yaml:"digest"`
+	Trust  Trust  `yaml:"trust,omitempty"`
 }
 
 // Trust declares how a skill's signatures are verified when it is pulled.
@@ -133,10 +132,19 @@ func Load(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("parsing manifest: %w", err)
 	}
 
+	if m.APIVersion != APIVersion {
+		return nil, fmt.Errorf("unsupported manifest apiVersion %q (expected %q)", m.APIVersion, APIVersion)
+	}
+
+	seen := make(map[string]struct{}, len(m.Skills))
 	for _, s := range m.Skills {
 		if err := ValidateSkillName(s.Name); err != nil {
 			return nil, fmt.Errorf("invalid skill in manifest: %w", err)
 		}
+		if _, duplicate := seen[s.Name]; duplicate {
+			return nil, fmt.Errorf("duplicate skill %q in manifest", s.Name)
+		}
+		seen[s.Name] = struct{}{}
 	}
 
 	return m, nil

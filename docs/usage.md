@@ -107,18 +107,17 @@ skills:
     - name: translator
       image: quay.io/redhat/skills/translator:1.0
       digest: sha256:c696d5bb34aa30f6fc23e1f0a0aafd91c642d7d0341e42c2ac009cddc743619f
-      extractPath: .agents/skills/translator
       trust:
           key: keys/translator.pub
 
     - name: skillctl-example-skill
       image: quay.io/vrothberg/skillctl-example-skill:v1.0.0
       digest: sha256:a02ed76caf2de9d1ea33328d9ff0810a87ed37f6721baf9276d4d4023e346447
-      extractPath: .agents/skills/skillctl-example-skill
       trust: none
 ```
 
-The `image` field determines what is pulled. The separate `digest` field records the content retrieved by the last successful pull or update and is used to detect changes; it does not constrain future pulls.
+The `image` field determines what is pulled. Image references must be fully qualified, including the registry; short names such as `busybox:v1` are rejected instead of being resolved against Docker Hub.
+The separate `digest` field records the content retrieved by the last successful pull or update and is used to detect changes; it does not constrain future pulls.
 If a tag points to new content, `skillctl update` retrieves that content and updates the recorded digest, even when the image reference in the manifest has not changed.
 
 To pin immutable content, use a digest-qualified image reference instead of a tag. For example, using the digest from the manifest above:
