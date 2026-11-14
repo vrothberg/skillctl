@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	go.podman.io/common v0.70.0
 	go.podman.io/image/v5 v5.42.0
-	go.podman.io/storage v1.65.0
+	go.podman.io/storage v1.65.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
