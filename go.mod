@@ -9,7 +9,7 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.11.1
 	github.com/spf13/cobra v1.10.2
 	go.podman.io/common v0.70.0
-	go.podman.io/image/v5 v5.42.0
+	go.podman.io/image/v5 v5.42.1
 	go.podman.io/storage v1.65.1
 	gopkg.in/yaml.v3 v3.0.1
 )
