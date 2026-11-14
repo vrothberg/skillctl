@@ -457,7 +457,7 @@ go.podman.io/common/pkg/supplemented
 go.podman.io/common/pkg/systemd
 go.podman.io/common/pkg/timetype
 go.podman.io/common/version
-# go.podman.io/image/v5 v5.42.0
+# go.podman.io/image/v5 v5.42.1
 ## explicit; go 1.26.0
 go.podman.io/image/v5/copy
 go.podman.io/image/v5/directory
